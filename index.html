@@ -1,0 +1,1416 @@
+<!-- Chosen Palette: A calming, harmonious palette based on warm neutrals (e.g., #f0f4f8, #f0fdfa, #ffffff for backgrounds) complemented by soft blues and greens (#0ea5e9, #0284c7, #16a34a, #2563eb) for interactive elements and headings. Accent colors like yellow (#facc15, #fcd34d) for specific buttons (like "操作說明") provide subtle highlights. The overall goal is readability and a pleasant, integrated visual experience. -->
+<!-- Application Structure Plan: The SPA is structured as a single-page interactive guide for Taoyuan tourism, using a tab-like navigation system at the top (main filters) to switch between major content categories (Introduction, Attractions, Food, Festivals, Temple Festivals, Parks, Historical Sites, Tourist Factories, Day Trips, Instructions). This structure was chosen to provide clear thematic separation while keeping all content on a single page for quick access and a streamlined user experience. Users can easily explore different aspects of Taoyuan by clicking on the main filter buttons. Within each category, secondary filters (dynamic based on the main category) allow for further refinement of content. Detailed information for each item is presented in a modal, ensuring focus on the selected item without navigating away. This design prioritizes user understanding and ease of navigation by providing a clear hierarchical path for exploration. -->
+<!-- Visualization & Content Choices: Summary: Report Info -> Goal -> Viz/Presentation Method -> Interaction -> Justification -> Library/Method - Confirming NO SVG/Mermaid, supporting the DESIGNED structure. The core information (attractions, food, festivals, etc.) is presented as interactive cards or lists. This allows users to quickly scan and select items of interest. Detailed item descriptions are shown in a modal with text, images, and links, and include a voice read-aloud feature for accessibility. The Taoyuan overview is a dedicated section with text and an embedded Google Map for context. Day trip itineraries are structured text lists with detailed modal views and voice read-aloud. Application usage instructions are provided in a dedicated section with structured text. -->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>桃園旅遊景點、美食、節慶活動、特色公園與古蹟互動導覽</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f0f4f8;
+            background-image: linear-gradient(135deg, #e0f2fe 0%, #f0fdfa 100%);
+        }
+        /* 主要篩選按鈕的通用樣式 */
+        .filter-btn {
+            transition: all 0.3s ease;
+            border: 1px solid #cbd5e1; /* slate-300 */
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        /* 主要篩選按鈕的啟用狀態 */
+        .filter-btn.active {
+            background-color: #0ea5e9; /* sky-500 */
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-color: #0ea5e9; /* sky-500 */
+        }
+        /* 卡片懸停效果 */
+        .card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        /* 彈窗過渡效果 */
+        #modal {
+            transition: opacity 0.3s ease;
+        }
+
+        /* 桃園簡介內容排版優化 */
+        .introduction-section-content { 
+            padding: 2.5rem;
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .introduction-text-content {
+            line-height: 2;
+            font-size: 1.1rem;
+        }
+
+        .introduction-content h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: #0c4a6e;
+            text-align: center;
+        }
+        .introduction-content h3 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-top: 2rem;
+            margin-bottom: 0.8rem;
+            color: #0369a1;
+            border-bottom: 2px solid #a7d9f7;
+            padding-bottom: 0.5rem;
+        }
+        .introduction-content p {
+            margin-bottom: 1rem;
+        }
+        .introduction-content ul {
+            list-style-type: disc;
+            margin-left: 2rem;
+            margin-bottom: 1rem;
+            padding-left: 0.5rem;
+        }
+        .introduction-content li {
+            margin-bottom: 0.6rem;
+        }
+
+        .introduction-map-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .introduction-map-content h3 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #0369a1;
+            text-align: center;
+            border-bottom: 2px solid #a7d9f7;
+            padding-bottom: 0.5rem;
+            width: 100%; /* 讓標題撐滿地圖區塊 */
+        }
+        .introduction-map-content iframe {
+            width: 100%;
+            height: 400px; /* 可調整地圖高度 */
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 次要篩選器按鈕樣式 */
+        .secondary-filter-btn {
+            border: none;
+            box-shadow: none;
+        }
+        .secondary-filter-btn.active {
+            box-shadow: none;
+            transform: none;
+            background-color: #0ea5e9 !important;
+            color: white !important;
+        }
+        /* 各分類次要按鈕顏色優化 */
+        .bg-green-100.secondary-filter-btn.active { background-color: #16a34a !important; color: white !important; }
+        .bg-yellow-100.secondary-filter-btn.active { background-color: #ca8a04 !important; color: white !important; }
+        .bg-indigo-100.secondary-filter-btn.active { background-color: #4f46e5 !important; color: white !important; }
+        .bg-purple-100.secondary-filter-btn.active { background-color: #9333ea !important; color: white !important; }
+        .bg-red-100.secondary-filter-btn.active { background-color: #dc2626 !important; color: white !important; }
+        .bg-blue-100.secondary-filter-btn.active { background-color: #2563eb !important; color: white !important; }
+        .bg-orange-100.secondary-filter-btn.active { background-color: #ea580c !important; color: white !important; }
+        .bg-teal-100.secondary-filter-btn.active { background-color: #0d9488 !important; color: white !important; }
+        .bg-pink-100.secondary-filter-btn.active { background-color: #db2777 !important; color: white !important; } /* 新增一日遊篩選按鈕顏色 */
+        .bg-gray-100.secondary-filter-btn.active { background-color: #6b7280 !important; color: white !important; } /* 觀光工廠分類按鈕顏色 */
+
+        /* 語音控制區樣式 */
+        .voice-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px;
+            background-color: #f3f4f6;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        
+        .voice-btn {
+            background: #0ea5e9;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .voice-btn:hover {
+            background: #0284c7;
+            transform: scale(1.1);
+        }
+        
+        .voice-btn.stop {
+            background: #ef4444;
+        }
+        
+        .voice-btn.stop:hover {
+            background: #dc2626;
+        }
+        
+        .progress-container {
+            flex-grow: 1;
+            background: #e5e7eb;
+            border-radius: 10px;
+            height: 8px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: #0ea5e9;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+        
+        .voice-status {
+            font-size: 14px;
+            color: #4b5563;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        /* 響應式調整 */
+        @media (max-width: 768px) {
+            .introduction-text-content {
+                padding-right: 0; /* 手機版移除右側間距 */
+            }
+            .introduction-content h2 {
+                font-size: 2rem;
+            }
+            .introduction-content h3 {
+                font-size: 1.5rem;
+            }
+            #main-filter-container {
+                flex-direction: column;
+                align-items: center;
+                gap: 0.75rem;
+            }
+            .filter-btn {
+                width: 90%;
+                max-width: 300px;
+            }
+            
+            .voice-controls {
+                flex-wrap: wrap;
+            }
+        }
+
+        /* 一日遊規劃內容的特定樣式 */
+        .day-trip-plan {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .day-trip-plan h3 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #0ea5e9; /* sky-500 */
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #bae6fd; /* sky-200 */
+            padding-bottom: 0.5rem;
+        }
+
+        .day-trip-plan h4 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #0c4a6e; /* blue-900 */
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .day-trip-plan ul {
+            list-style-type: disc;
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+            line-height: 1.8;
+        }
+
+        .day-trip-plan p {
+            margin-bottom: 1rem;
+            line-height: 1.8;
+        }
+        
+        /* 簡介語音控制按鈕 */
+        .introduction-voice-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #0ea5e9;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 40;
+        }
+        
+        .introduction-voice-btn:hover {
+            background: #0284c7;
+            transform: scale(1.1);
+        }
+        
+        .introduction-voice-btn.stop {
+            background: #ef4444;
+        }
+        
+        /* 新增樣式：語音導讀提示 */
+        .voice-hint {
+            background-color: #e0f7fa;
+            border-left: 4px solid #00bcd4;
+            padding: 10px 15px;
+            border-radius: 0 8px 8px 0;
+            margin-top: 20px;
+        }
+        
+        .hero-section {
+            background: linear-gradient(120deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 2rem 1rem;
+            text-align: center;
+            border-radius: 0 0 30px 30px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hero-section::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://images.unsplash.com/photo-1587334274534-8c67d545f7d0?q=80&w=1000') center/cover;
+            opacity: 0.2;
+            z-index: 0;
+        }
+        
+        .hero-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .section-title {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 2rem;
+        }
+        
+        .section-title::after {
+            content: "";
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 4px;
+            background: linear-gradient(90deg, #0ea5e9, #3b82f6);
+            border-radius: 2px;
+        }
+        
+        .footer {
+            background: linear-gradient(120deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 2rem 1rem;
+            text-align: center;
+            margin-top: 3rem;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4">桃園旅遊景點互動導覽</h1>
+            <p class="text-xl max-w-3xl mx-auto">探索桃園的無限魅力，從山川到海岸，從古蹟到美食，再到精彩的年度節慶和特色公園！</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="max-w-full mx-auto p-4 md:p-8"> <!-- 保持 max-w-full mx-auto 讓內容置中且最大化 -->
+        
+        <h2 class="section-title text-3xl font-bold text-center mb-10">探索桃園旅遊資源</h2>
+        
+        <!-- 主要篩選器 -->
+        <div id="main-filter-container" class="flex justify-center space-x-4 mb-8 flex-wrap">
+            <!-- 桃園簡介按鈕 -->
+            <button data-main-filter="introduction" class="filter-btn main-filter-btn text-lg font-semibold py-2 px-6 bg-white rounded-full hover:bg-sky-100 mb-2 md:mb-0">桃園簡介</button>
+            <button data-main-filter="attractions" class="filter-btn main-filter-btn text-lg font-semibold py-2 px-6 bg-white rounded-full hover:bg-sky-100 mb-2 md:mb-0">旅遊景點</button>
+            <button data-main-filter="food" class="filter-btn main-filter-btn text-lg font-semibold py-2 px-6 bg-white rounded-full hover:bg-sky-100 mb-2 md:mb-0">特色美食</button>
+            <button data-main-filter="festivals" class="filter-btn main-filter-btn text-lg font-semibold py-2 px-6 bg-white rounded-full hover:bg-sky-100 mb-2 md:mb-0">節慶活動</button>
+            <button data-main-filter="templeFestivals" class="filter-btn main-filter-btn text-lg font-semibold py-2 px-6 bg-white rounded-full hover:bg-sky-100">廟宇節慶</button>
+            <button data-main-filter="parks" class="filter-btn main-filter-btn text-lg font-semibold py-2 px-6 bg-white rounded-full hover:bg-sky-100">特色公園</button>
+            <button data-main-filter="historicalSites" class="filter-btn main-filter-btn text-lg font-semibold py-2 px-6 bg-white rounded-full hover:bg-sky-100">古蹟尋訪</button>
+            <!-- 新增的觀光工廠按鈕 -->
+            <button data-main-filter="touristFactories" class="filter-btn main-filter-btn text-lg font-semibold py-2 px-6 bg-white rounded-full hover:bg-sky-100">觀光工廠</button>
+            <!-- 新增的一日遊規劃按鈕 -->
+            <button data-main-filter="dayTrips" class="filter-btn main-filter-btn text-lg font-semibold py-2 px-6 bg-white rounded-full hover:bg-sky-100">一日遊規劃</button>
+            <!-- 新增的操作說明按鈕 -->
+            <button data-main-filter="instructions" class="filter-btn main-filter-btn text-lg font-semibold py-2 px-6 bg-yellow-300 text-yellow-800 rounded-full hover:bg-yellow-400 mb-2 md:mb-0">
+                <i class="fas fa-question-circle mr-2"></i>操作說明
+            </button>
+        </div>
+        
+        <!-- 次要篩選器 -->
+        <div id="secondary-filter-container" class="text-center mb-8">
+            <!-- 次要篩選器將動態插入此處 -->
+        </div>
+
+        <!-- 內容網格 -->
+        <!-- 注意：content-grid 的 class 將由 JavaScript 動態調整 -->
+        <div id="content-grid">
+            <!-- 卡片或簡介內容將動態插入此處 -->
+        </div>
+    </main>
+
+    <!-- 彈窗 -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden">
+        <div id="modal-content" class="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative">
+            <button id="modal-close" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-3xl">&times;</button>
+            <div id="modal-body" class="p-6 md:p-8">
+                <!-- 彈窗內容將動態插入此處 -->
+            </div>
+            <!-- 語音控制區 -->
+            <div class="voice-controls">
+                <button id="play-btn" class="voice-btn">
+                    <i class="fas fa-play"></i>
+                </button>
+                <button id="pause-btn" class="voice-btn">
+                    <i class="fas fa-pause"></i>
+                </button>
+                <button id="stop-btn" class="voice-btn stop">
+                    <i class="fas fa-stop"></i>
+                </button>
+                <div class="progress-container">
+                    <div id="progress-bar" class="progress-bar"></div>
+                </div>
+                <div id="voice-status" class="voice-status">準備就緒</div>
+            </div>
+            <div class="voice-hint">
+                <i class="fas fa-info-circle mr-2 text-blue-500"></i>
+                語音導讀包含景點介紹、時程安排、飲食安排、交通規劃與注意事項
+            </div>
+        </div>
+    </div>
+    
+    <!-- 簡介語音控制按鈕 -->
+    <button id="introduction-voice-btn" class="introduction-voice-btn hidden">
+        <i class="fas fa-volume-up"></i>
+    </button>
+    
+    <!-- Footer -->
+    <div class="footer">
+        <p>桃園旅遊景點互動導覽系統 &copy; 2025</p>
+        <p class="mt-2">本網頁所有照片來自桃園市觀光導覽網與相關公開旅遊報導，純朋友間分享請勿商用，版權屬原創者所有。</p>
+    </div>
+
+<script>
+// --- 資料庫 (Data Store) ---
+const database = {
+    // ... 原有的景點、美食、節慶等資料 ...
+    attractions: [
+        { name: "大溪老街", district: "大溪區", type: ["歷史文化", "親子友善"], img: "https://travel.tycg.gov.tw/content/images/attractions/89622/1024x768_attractions-image-e8vdmixo8u2p1bapj-lz9w.jpg", description: "大溪老街不僅是美食天堂，更是一本活的建築史書。其最具代表性的牌樓立面融合了巴洛克式的華麗與傳統閩南圖案（如蝙蝠、麒蝠），見證了百年前大漢溪航運的黃金歲月。除了品嚐豆干、月光餅、花生糖等名產，漫步在和平老街，欣賞精緻的石雕與木刻，彷彿穿越時空。", tags: ["古蹟", "建築", "美食", "牌樓"] },
+        { name: "Xpark水族館", district: "中壢區", type: ["親子友善", "室內景點"], img: "https://travel.tycg.gov.tw/content/images/attractions/99750/1024x768_attractions-image-agxdkvnbvkayo5sox1aonq.jpg", description: "由日本橫濱八景島團隊打造，Xpark以尖端科技顛覆您對水族館的想像。館內分為「福爾摩沙」、「癒見水母」、「企鵝奇遇」等多個展區，利用聲光效果與環繞式展缸，營造出身歷其境的沉浸式體驗。這裡不僅是觀賞海洋生物的地方，更是一場結合藝術與生態的視聽饗宴。", tags: ["水族館", "親子", "室內", "沉浸式體驗"] },
+        { name: "拉拉山國家森林遊樂區", district: "復興區", type: ["自然風光"], img: "https://travel.tycg.gov.tw/content/images/attractions/104871/1024x768_attractions-image-ms7gy2jnce2eekhk4m-axq.jpg", description: "拉拉山以其壯觀的紅檜巨木群聞名，是北台灣享受森林浴、吸收高濃度芬多精的最佳地點。園區內規劃了完善的環狀步道，沿途可探訪24棵編號的千年神木，感受大自然的雄偉與靜謐。每年6至8月的水蜜桃產季，更是吸引無數饕客前來品嚐甜美多汁的果實。", tags: ["森林", "巨木", "步道", "水蜜桃", "芬多精"] },
+        { name: "小人國主題樂園", district: "龍潭區", type: ["親子友善"], img: "https://www.taiwan.net.tw/att/1/big_scenic_spots/pic_3096_18.jpg", description: "創立於1984年，是台灣第一座以世界各國微縮景觀為主題的樂園。園區內有超過130座依原建築25分之一比例縮小的精緻模型，讓您一日環遊世界。此外，樂園還設有20多項適合親子同樂的遊樂設施以及夏季限定的轟浪水樂園，是幾代台灣人心中無可取代的童年回憶。", tags: ["樂園", "親子", "模型", "水樂園"] },
+        { name: "石門水庫", district: "大溪區", type: ["自然風光"], img: "https://travel.tycg.gov.tw/content/images/attractions/34281/1024x768_attractions-image-zyntexu3kkok3tgluqzfbw.jpg", description: "作為台灣北部最大的水庫，石門水庫不僅提供水源，其壯麗的湖光山色更是一絕。遊客可以搭船遊湖，欣賞洩洪時的磅礴氣勢，或是在環湖步道騎行、漫步。秋冬之際，滿山的楓紅將此地點綴得如詩如畫，而遠近馳名的「活魚多吃」料理，更是老饕們不容錯過的美食體驗。", tags: ["湖泊", "賞楓", "活魚", "自行車道"] },
+        { name: "虎頭山公園", district: "桃園區", type: ["自然風光", "親子友善"], img: "https://travel.tycg.gov.tw/content/images/attractions/60021/1024x768_attractions-image-b-v0vfxhzkg7tk7sf0iaeg.jpg", "description": "被譽為「桃園市民的後花園」，虎頭山擁有多條規劃完善的登山步道。其中「奧爾森林學堂」的樹屋群和空中步道最受親子歡迎，讓孩子能以不同視角親近自然。傍晚時分，山頂的環保公園是眺望桃園市區夜景的絕佳地點，萬家燈火盡收眼底。", tags: ["公園", "步道", "夜景", "親子", "奧爾森林學堂"] },
+        { name: "永安漁港", district: "新屋區", type: ["自然風光"], img: "https://travel.tycg.gov.tw/content/images/attractions/3992/1024x768_Filedata635487373361213056.jpg", description: "永安漁港是全台唯一的客家漁港，觀光漁市大樓內販售著新鮮的漁獲與各式熟食。黃昏時分，在此欣賞夕陽沉入海平面的美景，是極致的享受。入夜後，橫跨港區的彩虹橋會點亮七彩燈光，與漁船燈火相互輝映，景色十分浪漫。您也可以在此租借自行車，暢遊綠色隧道。", tags: ["漁港", "海鮮", "夕陽", "自行車"] },
+        { name: "77巧克力共和國", district: "八德區", type: ["觀光工廠", "親子友善"], img: "https://images.abic.com.tw/photoDB/post/1727330457.jpg", description: "由老牌零食「77乳加」的製造商宏亞食品所創立，這座現代感十足的建築是東南亞首座巧克力博物館。館內不僅詳細介紹了巧克力的歷史與製程，還提供多種有趣的DIY體驗課程，讓大小朋友都能動手創造屬於自己的巧克力。戶外的巨型77乳加巧克力更是不可錯過的打卡地標。", tags: ["博物館", "DIY", "巧克力", "親子"] },
+        { name: "大溪老茶廠", district: "大溪區", type: ["歷史文化", "文創園區"], img: "https://travel.tycg.gov.tw/content/images/attractions/34120/1024x768_attractions-image-foxkg865kkkztkogulbyeq.jpg", description: "前身為日治時期的「角板山工場」，這座走過近百年歲月的茶廠，如今已華麗轉身為結合文創與觀光的複合式空間。其建築融合了台、日、英式風格，內部保留了舊時的製茶機具，散發著濃厚的工業風與歷史感。二樓整排的復古藍色窗櫺，更是劇集《茶金》取景後爆紅的IG打卡聖地。", tags: ["茶廠", "文創", "復古", "茶金", "建築"] },
+        { name: "橫山書法藝術館", district: "大園區", type: ["文創園區"], img: "https://travel.tycg.gov.tw/content/images/attractions/75474/1024x768_attractions-image-bckjmf2cvusyt_b2jhe4jw.jpg", description: "坐落於青埔地區，是台灣首座由官方經營的書法藝術主題美術館。建築師以公園為「硯台」、埤塘為「墨池」的意象進行設計，打造出一個充滿禪意與美學的空間。館內定期展出國內外名家的書法作品，即便不懂書法，也能在此感受建築光影之美與寧靜的氛圍。", tags: ["美術館", "書法", "建築", "文青", "青埔"] },
+        { name: "馬祖新村眷村文創園區", district: "中壢區", type: ["歷史文化", "文創園區"], img: "https://travel.tycg.gov.tw/content/images/attractions/68422/1024x768_attractions-image-15a_kioyf0gmeo0xnwrkfw.jpg", description: "作為桃園「眷村鐵三角」之一，馬祖新村完整地保存了棋盤式街道與獨棟院落的格局。如今，這裡不僅是記錄眷村歷史的活博物館，更轉型為文創基地，吸引了許多獨立書店、咖啡廳與藝術工作室進駐。定期舉辦的文創市集，為老眷村注入了源源不絕的年輕活力。", tags: ["眷村", "文創", "市集", "電影", "老屋"] },
+        { name: "埔心農場", district: "楊梅區", type: ["親子友善"], img: "https://photo.travelking.com.tw/scenery/9F5B31B8-B25B-4218-B240-1776A670CA9D_e.jpg", description: "歷史悠久的埔心農場，近年轉型後變得更加有趣。遊客不僅可以搭乘遊園車輕鬆遊覽，還能近距離餵食水豚、羊駝、梅花鹿等可愛動物。園區內設施豐富，從賽福羊、榨乳體驗到大型的露營烤肉區應有盡有，是適合三代同堂、共度歡樂時光的最佳去處。", tags: ["農場", "動物", "親子", "露營", "水豚"] },
+        { name: "桃園神社", district: "桃園區", type: ["歷史文化"], img: "https://travel.tycg.gov.tw/content/images/attractions/80939/1024x768_attractions-image-fo8u1gcldegfdllsakqy-a.jpg", description: "正式名稱為「桃園忠烈祠暨神社文化園區」，是全台灣保存最為完整的日式神社建築。園區由檜木打造的本殿、拜殿、鳥居等建築，散發著莊嚴而靜謐的氛圍，讓人有瞬間來到日本京都的錯覺。這裡時常舉辦市集與文化活動，是體驗和風之美與拍攝美照的絕佳地點。", tags: ["神社", "日式建築", "古蹟", "偽出國"] },
+        { name: "東眼山國家森林遊樂區", district: "復興區", type: ["自然風光"], img: "https://travel.tycg.gov.tw/content/images/attractions/104925/1024x768_attractions-image-mbkvczbokku1kslbqjpupq.jpg", description: "昔日為伐木林場，現在則是北台灣重要的森林遊憩區。園區內擁有多條難易度不同的登山步道，其中柳杉林與雲海是其最大特色。登上山頂的瞭望台，天氣好時甚至可以遠眺台北101。這裡生態豐富，是賞鳥、賞蝶的絕佳地點，也是避暑和享受自然寧靜的好去處。", tags: ["森林", "步道", "賞鳥", "生態", "雲海"] },
+        { name: "雄獅文具想像力製造所", district: "龍潭區", type: ["觀光工廠", "親子友善"], img: "https://travel.tycg.gov.tw/content/images/attractions/67529/1024x768_attractions-image-hp05a0k3xuow-lbsfkuvrq.jpg", description: "這不只是一家觀光工廠，更像是一座結合美術與創意的親子館。一進門，60色的巨大漸層彩色筆牆就令人驚嘆。館內設有充滿想像力的夜光隧道、泡泡機互動區，還提供多種手作課程，讓大人小孩都能在這裡盡情揮灑創意，享受色彩帶來的樂趣。", tags: ["觀光工廠", "DIY", "親子", "美術", "打卡"] },
+        { name: "手信霧隱城", district: "龍潭區", type: ["觀光工廠", "親子友善"], img: "https://travel.tycg.gov.tw/content/images/attractions/75193/1024x768_attractions-image-o6wml3ujmuyukpp0kmay5g.jpg", description: "以日本鎌倉時代為背景打造的觀光工廠，外觀是雄偉的日式城堡，內部則重現了日本城下町的街景。遊客可以欣賞巨大的武士頭盔、天狗神像，並在充滿江戶風情的街景中品嚐點心、參加DIY體驗。濃厚的日本氛圍，讓這裡成為一秒到日本的熱門打卡景點。", tags: ["觀光工廠", "日式", "城堡", "親子", "偽出國"] },
+        { name: "觀音蓮花園休閒農業區", district: "觀音區", type: ["自然風光"], img: "https://travel.tycg.gov.tw/content/images/attractions/47065/1024x768_attractions-image--s7nhlifs0qnlqsaqzpskg.jpg", description: "每年夏季（約7月至9月），觀音地區便會迎來盛大的蓮花季。數十家蓮園與農場百花齊放，形成一片壯觀的蓮田花海。遊客除了可以欣賞不同品種的蓮花與乘坐大王蓮，還能品嚐到獨特的蓮子餐、蓮藕餐等特色料理，是夏季消暑賞花的最佳去處。", tags: ["季節限定", "蓮花", "農場", "花海", "美食"] },
+    ],
+    food: [
+        { name: "米干", type: "在地小吃", district: ["中壢區", "平鎮區"], img: "https://imageproxy.pixnet.cc/imgproxy?url=https://pic.pimg.tw/nikitarh/1556375433-1754601777_n.jpg", description: "這碗看似平凡的麵食，承載著滇緬孤軍的鄉愁與故事。米干以純在來米漿蒸製而成，口感比粄條更Q滑、比米粉更紮實。傳統吃法是搭配濃郁的豬骨高湯、肉燥、豬肝和一顆銷魂的半熟蛋包，是龍岡地區最具代表性的靈魂美食。", tags: ["特色小吃", "龍岡", "麵食", "異域孤軍"] },
+        { name: "大溪豆干", type: "在地小吃", district: ["大溪區"], img: "https://upssmile.com/wp-content/uploads/2024/01/20240106-IMG_8846-2.jpg", description: "大溪豆干之所以聞名，秘訣在於使用清甜的泉水與獨特的焦糖滷汁。從Q彈的黑豆干、多汁的素雞到香氣十足的豆皮，種類繁多。在大溪老街上，幾乎人手一袋，無論是現滷現吃，還是作為伴手禮，都是不容錯過的在地滋味。", tags: ["豆干", "老街", "伴手禮", "小吃"] },
+        { name: "石門活魚多吃", type: "特色餐廳", district: ["大溪區", "龍潭區"], img: "https://vivawei.tw/wp-content/uploads/0-176.jpg", description: "石門水庫周邊最經典的料理。餐廳會將一條重達數公斤的新鮮草魚或烏鰡，以糖醋、豆瓣、清蒸、紅燒、砂鍋魚頭、味噌湯等多種方式料理上桌。一魚多吃的豪邁吃法，不僅考驗師傅功力，也讓顧客能品嚐到魚的各部位的不同風味，非常適合家庭聚餐。", tags: ["海鮮", "合菜", "石門水庫", "台菜"] },
+        { name: "村民食堂", type: "特色餐廳", district: ["桃園區"], img: "https://villager.com.tw/wp-content/uploads/2020/01/slider01.jpg", description: "位於桃園藝文特區，是桃園地區少數主打港式飲茶點心百匯吃到飽的餐廳。從經典的蝦餃、燒賣到創意的炸物、甜品，所有點心皆採現點現做，確保了最佳口感與新鮮度。用餐環境寬敞舒適，是親友聚餐、享受美食的熱門選擇。", tags: ["吃到飽", "港式飲茶", "餐廳", "藝文特區"] },
+        { name: "桃園觀光夜市", type: "夜市美食", district: ["桃園區"], img: "https://travel.tycg.gov.tw/content/images/attractions/72225/1024x768_attractions-image-wv65tedjrkgphywcmmlkla.jpg", description: "位於中正路上，是桃園市區規模最大、歷史最悠久的夜市。這裡的美食攤位集中在北埔路上，種類繁多且重複性低，從「花蓮炸蛋蔥油餅」的香酥、「頭頓煎蝦餅」的越式風味，到「吳記排骨酥」的古早味，應有盡有，是體驗在地夜市文化的首選。", tags: ["夜市", "小吃", "宵夜", "在地推薦"] },
+        { name: "中壢觀光夜市", type: "夜市美食", district: ["中壢區"], img: "https://travel.tycg.gov.tw/content/images/attractions/70877/1024x768_attractions-image-faicgtuv5u68kpza3idoyq.jpg", description: "又稱新明夜市，鄰近中壢高中，規模龐大，美食臥虎藏龍。這裡有許多經營數十年的老字號攤位，如「簡師傅麻辣臭豆腐」、「好鮮屋米粉湯」，也有許多年輕人喜愛的新潮小吃。無論想吃正餐還是點心，這裡都能滿足你的味蕾。", tags: ["夜市", "小吃", "宵夜", "南桃園"] },
+        { name: "花生糖", type: "伴手禮", district: ["龍潭區"], img: "https://travel.tycg.gov.tw/content/images/shops/38455/640x480_shops-image-ax5woxdnaus5xl9jlm3aja.jpg", description: "龍潭的花生糖遠近馳名，其中又以「龍潭第一家」最具代表性。這裡的花生糖堅持手工製作，將粒粒飽滿的花生與香醇的麥芽糖完美結合，口感香、酥、脆且不黏牙。除了原味，還有香菜、海苔等多種口味可選，是絕佳的茶點與伴手禮。", tags: ["甜點", "伴手禮", "龍潭", "手工製作"] },
+        { name: "仙草", type: "在地小吃", district: ["楊梅區", "觀音區"], img: "https://uploads.52go.com.tw/86/86913526/16116825639_default.jpg", description: "桃園是台灣仙草的主要產區，品質優良，香氣特別濃郁。由在地仙草製成的仙草凍、仙草茶、燒仙草等產品，口感滑嫩、清熱解暑。尤其在楊梅，有許多專賣店將仙草料理發揮到極致，如仙草雞、仙草冰等，是品嚐道地仙草風味的最佳地點。", tags: ["甜品", "特色作物", "消暑", "楊梅"] },
+        { name: "客家菜包", type: "在地小吃", district: ["中壢區", "平鎮區"], img: "https://imageproxy.pixnet.cc/imgproxy?url=https://pic.pimg.tw/wilsonwu1974/1602644343-2745716797-g_n.jpg", description: "傳統的客家米食點心，外皮使用糯米漿製成，Q彈有嚼勁，有些會加入艾草或紅麴增添風味與色澤。內餡則是用豬肉、蝦米爆香後，與刨成絲的白蘿蔔一同拌炒，鹹香的滋味與Q軟的外皮是絕配，是許多桃園人從小吃到大的家鄉味。", tags: ["客家美食", "米食", "傳統小吃", "蘿蔔絲"] },
+        { name: "中壢牛肉麵", type: "特色餐廳", district: ["中壢區"], img: "https://cc.tvbs.com.tw/img/program/upload/2022/09/28/20220928152749-86f0895d.jpg", description: "中壢可說是牛肉麵的一級戰區，短短的街道上聚集了數十家名店。這裡的牛肉麵以湯頭濃郁、牛肉大塊、份量十足而聞名，從紅燒、清燉到番茄等多種湯頭應有盡有。許多店家還提供免費加湯加麵的服務，充分展現了在地的豪邁與熱情。", tags: ["牛肉麵", "麵食", "在地推薦", "高CP值"] },
+    ],
+    festivals: [
+        { name: "角板山梅花季", district: "復興區", date: "2025/01/18 - 2025/12/13", img: "https://travel.tycg.gov.tw/content/images/articles/32047/1024x768_articles-image-an_hhkqliksz1idwzdjwna.jpg", description: "角板山公園種植了大量梅樹，每年一月梅花盛開，純白的花朵與清雅的香氣，吸引眾多遊客前來賞花，感受冬末春初的浪漫氛圍。", tags: ["花卉", "季節限定", "自然風光"] },
+        { name: "友愛大聲說", district: "待公布", date: "2025/01/29 - 2025/02/02", img: "https://travel.tycg.gov.tw/content/images/articles/105393/480x360_articles-image-ranjittzjugxpwq8srss-q.png", description: "一項關於友誼與愛的活動，具體內容待主辦單位公佈，預計會是充滿溫馨與互動的節慶。", tags: ["文化", "互動"] },
+        { name: "2025台灣燈會在桃園", district: ["中壢區", "桃園區"], date: "2025/02/12 - 2025/02/23", img: "https://2025taiwanlanternfestival.org/File/Get/d877cab7-a2ac-4897-9e73-8e826726e867", description: "時隔九年台灣燈會再度回到桃園舉辦，以「光聚千塘串桃園」為主題，打造雙展區奇幻親子城。除了主燈展演，還有多元的文化展演、踩街遊行，並結合寶可夢提燈活動，是農曆新年後最盛大的節慶活動。", tags: ["燈會", "文化", "親子", "國際"] },
+        { name: "大龍門好神集章尋寶趣", district: "大龍門地區", date: "2025/02/07 - 2025/03/31", img: "https://travel.tycg.gov.tw/Image/106538/?r=1737776557900", description: "結合在地宮廟與景點的集章活動，讓民眾透過尋寶的方式，深度體驗大龍門地區的文化與自然風光。", tags: ["文化", "集章", "尋寶"] },
+        { name: "龍潭迎古董接財神", district: "龍潭區", date: "2025/02/12 - 2025/02/23", img: "https://travel.tycg.gov.tw/content/images/articles/105477/1920x1080_articles-image-vdn8ijmdsumf57n9eywpxa.jpg", description: "龍潭地區獨特的元宵節慶典，居民會拿出家中的古董器具上街遊行，並有接財神的祈福儀式，充滿趣味與地方特色。", tags: ["傳統", "民俗", "元宵"] },
+        { name: "魯冰花季", district: "龍潭區", date: "2025/03/08 - 2025/03/15", img: "https://cdn-smiletaiwan.cw.com.tw/article/202503/article-67c6f41e2805c.jpg", description: "金黃色的魯冰花在茶園間盛開，形成一片美麗的花海。活動通常會結合客家文化體驗、農產品市集等，讓遊客感受客庄風情。", tags: ["花卉", "客家", "季節限定"] },
+        { name: "2025桃園潮流藝術嘉年華-老城派對", district: "桃園區", date: "2025/03/08 - 2025/03/09", img: "https://static.accupass.com/eventbanner/2503021429327669449200.jpg", description: "串連街頭藝術、潮流文化與在地特色，透過變裝、市集、街頭表演等形式，讓民眾走入桃園舊城區，感受歷史與創意交融的城市魅力。", tags: ["藝術", "文化", "潮流", "嘉年華"] },
+        { name: "探索北橫春季活動-大龍門X櫻花勇士自行車活動", district: "北橫公路沿線", date: "2025/03/25 - 2025/05/11", img: "https://travel.tycg.gov.tw/content/images/articles/107874/1024x768_articles-image-3kx-nwojk0mlyevsgvv-pq.jpg", description: "結合北橫公路的自然美景與櫻花盛開的時節，舉辦自行車挑戰活動，鼓勵民眾以低碳方式探索北橫風光。", tags: ["自行車", "戶外", "季節限定"] },
+        { name: "2025陶異星漫遊", district: "待公布", date: "2025/03/29 - 2025/04/06", img: "https://travel.tycg.gov.tw/content/images/articles/109218/1920x1080_articles-image-dgyjnwzbb02rm15yyxag1w.jpg", description: "結合陶藝創作與趣味互動的藝術活動，可能包含市集、手作體驗、裝置藝術等，讓民眾在輕鬆氛圍中接觸藝術。", tags: ["藝術", "文創", "親子"] },
+        { name: "彩色海芋季-奇芋夢幻島", district: ["大園區", "觀音區"], date: "2025/04/11", img: "http://egoldenyears.com/wp-content/uploads/2022/04/line_album_0405_220406_80.jpg", description: "以彩色海芋為主題的花卉盛會，透過花卉裝置藝術營造夢幻氛圍，是春夏季熱門的打卡景點。", tags: ["花卉", "季節限定", "裝置藝術"] },
+        { name: "2025桃園龍岡米干節", district: ["中壢區", "平鎮區"], date: "2025/04/19 - 2025/05/04", img: "https://travel.tycg.gov.tw/content/images/articles/109205/1920x1080_articles-image-xbkzqlvwfks-zrquu7pyda.jpg", description: "展現滇緬移民文化的年度盛會，有米干美食、少數民族歌舞表演、火把節、長街宴等，充滿異國風情，是品嚐特色美食與體驗多元文化的最佳時機。", tags: ["文化", "美食", "異國風情"] },
+        { name: "2025桃園客家桐花祭", district: "客家文化重點發展區", date: "2025/05/03 - 2025/11/09", img: "https://travel.tycg.gov.tw/content/images/articles/109215/480x360_articles-image-vqmsjnd8ae2nd-cyfvzycg.png", description: "每年五月桐花盛開，雪白的桐花覆蓋山頭，故有「五月雪」之稱。桐花祭結合客家傳統文化活動，如桐花音樂會、客家市集、小旅行等，是體驗客家風情的好機會。", tags: ["花卉", "客家", "季節限定"] },
+        { name: "114年度原住民族歲時祭儀 (5-11月)", district: "復興區", date: "2025/05/10 - 2025/05/25", img: "https://travel.tycg.gov.tw/content/images/articles/109415/1920x1080_articles-image-vgn32rvnae2tt8nege7ygw.jpg", description: "桃園復興區為泰雅族主要聚居地，歲時祭儀是原住民族重要的傳統文化活動，內容包含祭典儀式、歌舞表演、文化體驗等，展現原住民族豐富的文化內涵。", tags: ["原住民", "文化", "祭典"] },
+        { name: "花現台七-繡球金針農遊趣", district: "復興區", date: "2025/05/20 - 2025/06/22", img: "https://travel.tycg.gov.tw/content/images/articles/109349/480x360_articles-image-nteph0vy4eu-akvh0so1fg.jpg", description: "結合台七線沿線的繡球花和金針花海，推出系列農遊活動，讓民眾賞花、體驗農村生活，享受自然風光。", tags: ["花卉", "農遊", "戶外"] },
+        { name: "創意畢業季《源源不絕》Sustainable Creativity", district: "待公布", date: "2025/05/30 - 2025/06/01", img: "https://travel.tycg.gov.tw/content/images/articles/109456/1920x1080_articles-image-xapsrnhsi0expr_b64j1kq.jpg", description: "呈現大專院校畢業生創意作品的展覽，內容可能涵蓋設計、藝術、影視等多元領域，展現年輕世代的無限創意。", tags: ["藝術", "展覽", "創意"] },
+        { name: "2025桃園閩南文化節", district: ["八德區", "桃園區"], date: "2025/06/07 - 2025/10/26", img: "https://tycminnan.tw/images/2025event_01.jpg", description: "為期五週的閩南文化盛會，包含藝閣踩街、藝陣大匯演、閩南文化國際論壇、總舖師辦桌、國際龍獅邀請賽等多元活動，展現閩南文化的傳統與創新。", tags: ["閩南", "文化", "藝文", "民俗"] },
+        { name: "2025世界海洋日在桃園・循環新未來", district: "待公布", date: "2025/06/14 - 2025/10/31", img: "https://travel.tycg.gov.tw/content/images/articles/109623/1920x1080_articles-image-d_fsq-hvjeglhdcqaqfnyq.jpg", description: "響應世界海洋日，推廣海洋保育與永續發展理念，可能包含淨灘、海洋教育展覽、相關講座等活動。", tags: ["環保", "海洋", "教育"] },
+        { name: "2025探索北橫夏季活動", district: "北橫公路沿線", date: "2025/06/21 - 2025/06/29", img: "https://travel.tycg.gov.tw/content/images/articles/109821/1920x1080_articles-image-gocx-u5ql06xzvpawl4dvw.png", description: "夏季的北橫活動通常會結合避暑、親水、森林遊憩等主題，可能會有健行、溯溪、露營等體驗。", tags: ["戶外", "自然", "避暑"] },
+        { name: "2025桃園兒童藝術節", district: "待公布", date: "2025/06/21 - 2025/07/13", img: "https://travel.tycg.gov.tw/content/images/articles/109745/480x360_articles-image-zoro4hzd1kyjk0h7ir9bpg.jpg", description: "專為兒童設計的藝術盛會，包含兒童劇、音樂會、藝術工作坊、裝置藝術等，提供豐富的藝術體驗。", tags: ["親子", "藝術", "兒童劇"] },
+        { name: "2025桃園城市變裝嘉年華", district: "中壢區", date: "2025/06/07 - 2025/06/08", img: "https://tyenews.com/wp-content/uploads/2025/06/WA5_3958-scaled.jpg", description: "一場結合Cosplay、變裝造型大賽、變裝遊行、兒童劇場及市集的嘉年華。更有「世界COSPLAY高峰會」台灣代表選拔賽，吸引動漫迷共襄盛舉。", tags: ["動漫", "Cosplay", "嘉年華", "親子"] },
+        { name: "2025永安漁港星繽樂嘉年華", district: "新屋區", date: "2025/07/01 - 2025/08/02", img: "https://pix1.agoda.net/hotelimages/51449473/0/2401088f65ae3461dcf528289d41fa5a.jpg?s=450x", description: "結合漁港特色與夏日風情，可能會有海鮮美食、文創市集、音樂表演、煙火秀等，是體驗漁港熱鬧氛圍的好去處。", tags: ["漁港", "美食", "嘉年華", "夏日"] },
+        { name: "2025乙未客家戰役X客家義民祭", district: ["楊梅區", "待公布"], date: "2025/07/01 - 2025/08/17", img: "https://travel.tycg.gov.tw/content/images/articles/103102/1920x1080_articles-image-uz_t4yulouknwnwveh-p7g.jpg", description: "紀念乙未戰爭中為保鄉衛土而犧牲的客家先民，並結合義民信仰的年度盛事。活動可能包含義民爺遶境、祭祀大典、挑擔奉飯、客家戲曲等。", tags: ["客家", "傳統", "民俗", "歷史"] },
+        { name: "2025桃園蓮花季", district: "觀音區", date: "2025/07/01 - 2025/08/17", img: "https://travel.tycg.gov.tw/content/images/attractions/47065/1024x768_attractions-image--s7nhlifs0qnlqsaqzpskg.jpg", description: "桃園觀音以蓮花聞名，蓮花季期間蓮花盛開，活動結合蓮花特色餐飲、文創商品、農事體驗，並有裝置藝術供民眾拍照，是夏季賞花遊憩的熱點。", tags: ["花卉", "季節限定", "農遊", "美食"] },
+        { name: "2025大溪大禧Daxidaxi", district: "大溪區", date: "2025/06/28 - 2025/07/18", img: "https://daxidaxi.tycg.gov.tw/WebUPD/daxidaxi/2024daxidaxi/R_%E5%AE%98%E7%B6%B2banner_25052616311075766.jpg", description: "結合大溪普濟堂關聖帝君聖誕慶典，發展出獨特的在地節慶。活動包含將軍繞境、社頭表演、文創市集等，展現大溪傳統信仰與藝術文化的結合。", tags: ["民俗", "文化", "傳統", "大溪"] },
+        { name: "狂美《宮崎駿動畫配樂II》交響音樂會-2025巡迴", district: "桃園區", date: "2025/08/09", img: "https://www.afmc.gov.tw/Upload/2025062015302321e5430.png", description: "一場將宮崎駿經典動畫配樂以交響樂形式呈現的音樂會，適合親子同樂，重溫動畫中的感動與美好。", tags: ["音樂", "親子", "藝文"] },
+        { name: "桃園地景藝術節", district: "依每年主題選擇不同展區", date: "舉辦時間待公布", img: "https://d1b8dyiuti31bx.cloudfront.net/NewsPhotos/20240930/95_122434145432.jpg", description: "兩年一度的國際級藝術盛會，邀請國內外藝術家結合在地文化與環境，創作大型地景藝術作品，展現藝術與土地的對話。確切時間與地點請關注官方公告。", tags: ["藝術", "地景", "國際"] },
+        { name: "桃園國際機場跑道開放體驗活動", district: "大園區", date: "舉辦時間待公布", img: "https://media.zenfs.com/ko/idn.com.tw/b36e9e116377c00b0795383c01b78776", description: "難得的機會讓民眾近距離體驗桃園國際機場的跑道，通常會結合路跑、航空知識導覽等活動，是航空迷不容錯過的盛會。", tags: ["航空", "體驗", "活動"] },
+        { name: "桃園花彩節", district: "桃園各休閒農業區輪流舉辦", date: "舉辦時間待公布", img: "https://cdn2.ettoday.net/images/7944/d7944303.jpg", description: "每年深秋舉辦的大型花卉節慶，在廣闊的農地種植各類花卉，如波斯菊、向日葵、百日草等，形成繽紛花海，並結合農特產品市集與文創活動。", tags: ["花卉", "季節限定", "農遊"] },
+        { name: "桃園跨年晚會", district: "待公布", date: "2025/12/31", img: "https://today-obs.line-scdn.net/0h4zlsD5FRa1VRCnoFDMsUAmlcZyRibHFcc2gjMnELMTJ4JnwEbWo4NiBaMXl1aC8AcTsjYyMLMjd0On8Aag/w644", description: "每年跨年夜的重頭戲，邀請知名藝人團體演出，並有精彩煙火秀，與民眾一同迎接新的一年。", tags: ["跨年", "晚會", "煙火"] }
+    ],
+    templeFestivals: [
+        { 
+            name: "桃園景福宮開漳聖王聖誕", 
+            district: "桃園區", 
+            date: "農曆2月15日", 
+            img: "https://tyenews.com/wp-content/uploads/2023/03/IMG_0285.jpg", 
+            description: "景福宮是桃園重要的信仰中心。農曆2月15日開漳聖王聖誕時，廟方會舉辦盛大的戲劇演出、陣頭、酬神活動，為期數十日，場面浩大。", 
+            tags: ["道教信仰", "傳統", "民俗", "開漳聖王"]
+        },
+        { 
+            name: "蘆竹南崁五福宮遶境祈福", 
+            district: "蘆竹區", 
+            date: "農曆1月17日", 
+            img: "https://x.miniwork.cc/userfiles/ChuangSheng/image/343.jpg", 
+            description: "南崁五福宮主祀武財神玄壇元帥。農曆1月17日會舉辦盛大的遶境祈福慶典。另外在農曆2月15日有戲劇演出、陣頭等活動；中元節則有高3層樓的水燈排車隊在市區遶境，最後在南崁溪放水燈祈福，場面壯觀。", 
+            tags: ["道教信仰", "傳統", "民俗", "遶境", "中元普渡"]
+        },
+        { 
+            name: "大溪普濟堂關聖帝君聖誕 (大溪大囍)", 
+            district: "大溪區", 
+            date: "農曆6月24日", 
+            img: "https://daxidaxi.tycg.gov.tw/WebUPD/daxidaxi/2024Events/ZWL_8934_24101812170783983.jpg", 
+            description: "這是大溪地區最大的民俗盛事，為期21天。高潮是聖誕前夕及當天的遶境活動，有31組陣頭在大溪老街上遊行，夜間還有光影秀和電子音樂派對，如同大溪的「第二個過年」。", 
+            tags: ["道教信仰", "傳統", "民俗", "關聖帝君", "陣頭"]
+        },
+        { 
+            name: "楊梅錫福宮元宵祈龜", 
+            district: "楊梅區", 
+            date: "農曆正月十五", 
+            img: "https://ws.tycg.gov.tw/001/Upload/82/relpic/10717/1708/fd60a8db-27f0-446d-a9d1-a850034557f0.png", 
+            description: "楊梅錫福宮是大楊梅地區的信仰中心。每年元宵節會舉辦「祈龜」活動，供奉由糯米製成的巨大平安龜，象徵祈求平安、福氣、長壽。", 
+            tags: ["道教信仰", "傳統", "民俗", "元宵", "祈龜"]
+        },
+        { 
+            name: "大溪蓮座山觀音寺觀音菩薩誕辰", 
+            district: "大溪區", 
+            date: "農曆2月19日", 
+            img: "https://www.lzm.tw/uploads/news/1000/2/dc8da39f-244c-e992.jpg", 
+            description: "蓮座山觀音寺環境清幽，是重要的佛教寺廟。除了農曆2月19日觀音菩薩誕辰的盛大慶典，還有元宵祈福日、乞求平安龜活動，以及農曆4、5月的誦經植福活動。", 
+            tags: ["佛教信仰", "傳統", "法會", "觀音菩薩"]
+        },
+        { 
+            name: "龜山壽山巖觀音寺觀音菩薩誕辰", 
+            district: "龜山區", 
+            date: "農曆2月19日", 
+            img: "https://upload.wikimedia.org/wikipedia/commons/a/ad/%E5%A3%BD%E5%B1%B1%E5%B7%96%E8%A7%80%E9%9F%B3%E5%AF%BA%E6%AD%A3%E9%9D%A2%E9%81%A0%E7%85%A7.jpg", 
+            description: "壽山巖觀音寺是市定古蹟，每年春季櫻花盛開。農曆2月19日觀音菩薩誕辰會舉辦大型慶典，此外也常舉辦大悲懺法會、地藏法會等各類法會與共修活動。", 
+            tags: ["佛教信仰", "傳統", "法會", "觀音菩薩"]
+        },
+        { 
+            name: "桃園忠烈祠春秋兩祭", 
+            district: "桃園區", 
+            date: "每年春、秋", 
+            img: "https://travel.tycg.gov.tw/content/images/attractions/80939/1024x768_attractions-image-fo8u1gcldegfdllsakqy-a.jpg", 
+            description: "桃園忠烈祠前身為日治時期神社，是台灣保存最完整的日式神社建築。每年會舉辦春祭與秋祭，緬懷為國捐軀的英烈。園區內也常有日式文化體驗活動。", 
+            tags: ["特殊歷史", "紀念", "文化體驗", "日式"]
+        },
+        { 
+            name: "桃園慈護宮媽祖聖誕", 
+            district: "桃園區", 
+            date: "農曆3月23日", 
+            img: "https://ws.tycg.gov.tw/001/Upload/1/RelPic/7885/636138/04.jpg", 
+            description: "慈護宮是桃園重要的媽祖信仰中心。農曆3月23日媽祖聖誕時舉辦盛大慶典，吸引各地信徒。此外也有中元普渡、放水燈等活動。", 
+            tags: ["複合信仰", "傳統", "民俗", "媽祖"] 
+        },
+        { 
+            name: "虎頭山三聖宮關聖帝君聖誕", 
+            district: "桃園區", 
+            date: "農曆6月24日", 
+            img: "https://ws.tycg.gov.tw/001/Upload/1/RelPic/7885/634682/S__27615344.jpg", 
+            description: "三聖宮以全台最高的關公立像聞名，廟內珍藏「會長鬍子的開基關公神像」。每年會舉辦關聖帝君聖誕祭祀活動。", 
+            tags: ["複合信仰", "傳統", "關聖帝君"] 
+        },
+        { 
+            name: "中壢仁海宮媽祖繞境", 
+            district: "中壢區", 
+            date: "每年不定期", 
+            img: "https://travel.tycg.gov.tw/content/images/attractions/63887/1024x768_attractions-image-ro00jtwne0gb9dpvtuihcg.jpg", 
+            description: "仁海宮是中壢重要信仰中心。每年會舉辦媽祖繞境活動，聲勢浩大，近年也推廣「以米代金」、「以花代金」的環保祭祀理念。", 
+            tags: ["複合信仰", "傳統", "民俗", "媽祖"]
+        },
+    ],
+    parks: [
+        { name: "桃園陽明運動公園", district: "桃園區", type: "旗艦型共融式公園", img: "https://ws.tycg.gov.tw/001/Upload/76/RelPic/11348/648774/27%E9%99%BD%E6%98%8E%E5%85%AC%E5%9C%92.jpg", description: "桃園區面積最大、自然生態最豐富的公園之一，包含草坡探險區、生態教育區、猿林遊戲區及猿氣體健區，滿足不同年齡層需求。", tags: ["旗艦型", "共融式", "親子友善", "生態"] },
+        { name: "中壢光明公園", district: "中壢區", type: "旗艦型共融式公園", img: "https://dynamic-media-cdn.tripadvisor.com/media/photo-o/0a/7a/21/d7/caption.jpg?w=900&h=-1&s=1", description: "設有秘密樹屋、水樹遊戲島、森林冒險挑戰區等四大主題遊戲區，滿足各年齡層的遊戲需求。", tags: ["旗艦型", "共融式", "親子友善", "樹屋", "戲水"] },
+        { name: "龍潭運動公園", district: "龍潭區", type: "旗艦型共融式公園", img: "https://ws.tycg.gov.tw/001/Upload/1/relpic/7885/1409849/9bf59ff2-6a79-4108-a4df-4f593b45447a.jpg", description: "改建後增設多項挑戰性設施，如勇士坡、壕溝體驗與綠蔭體健設施，是運動與冒險兼具的好去處。", tags: ["旗艦型", "共融式", "體能挑戰", "運動"] },
+        { name: "平鎮運動公園", district: "平鎮區", type: "旗艦型共融式公園", img: "https://andyhsu-trainer.com/wp-content/uploads/2023/09/S001-11.jpg", description: "擁有高架挑戰區與抱石牆、籃球場、足球場等設施，是熱愛體能活動者的熱門選擇。", tags: ["旗艦型", "共融式", "體能挑戰", "運動"] },
+        { name: "大園華興池公園", district: "大園區", type: "旗艦型共融式公園", img: "https://travel.tycg.gov.tw/content/images/attractions/104043/1024x768_attractions-image-katpj5yuu0qsk9djbpfh7q.jpg", description: "環湖步道自然生態豐富，另有冒險森林遊戲場與極限山丘，還能欣賞飛機從頭頂飛過的奇景。", tags: ["旗艦型", "共融式", "生態", "冒險", "飛機"] },
+        { name: "楊梅四維兒童公園", district: "楊梅區", type: "旗艦型共融式公園", img: "https://tyenews.com/wp-content/uploads/2025/03/gs5f5s.png", description: "打造眷村風情與兒童遊戲空間，適合野餐、放風箏，設有大型溜滑梯和兒童遊戲場。", tags: ["旗艦型", "共融式", "眷村主題", "親子友善", "溜滑梯"] },
+        { name: "八德楓樹腳公園", district: "八德區", type: "旗艦型共融式公園", img: "https://ws.tycg.gov.tw/001/Upload/1/relpic/7885/1441883/4265afb0-19a0-42f1-9f31-72981e2504a5.jpg", description: "近期全新落成，以16公尺高的長頸鹿溜滑梯為地標，搭配生態池與森林水道，適合親子漫步與探索。", tags: ["旗艦型", "共融式", "溜滑梯", "生態", "親子友善"] },
+        { name: "觀音水之丘主題公園", district: "觀音區", type: "主題式特色公園", img: "https://curly.com.tw/wp-content/uploads/2022/07/P1285185.jpg", description: "以藍白色系為主調，充滿沖繩或地中海風格，特色遊具是高達三層樓的飼料桶溜滑梯，刺激好玩。", tags: ["主題式", "溜滑梯", "戲水", "沖繩風"] },
+        { name: "中壢內定大江公園", district: "中壢區", type: "主題式特色公園", img: "https://icequeen.tw/wp-content/uploads/20221028145923_80.jpg", description: "太空主題的特色公園，設計感十足，讓孩子在玩樂中探索宇宙奧秘。", tags: ["主題式", "太空", "親子友善"] },
+        { name: "平鎮民俗文化公園", district: "平鎮區", type: "主題式特色公園", img: "https://andyhsu-trainer.com/wp-content/uploads/2023/09/S001-11.jpg", description: "以穀倉造型為主題，充滿在地文化特色，設有攀爬網架、盪鞦韆、旋轉盤和溜滑梯等遊具。", tags: ["主題式", "民俗文化", "溜滑梯", "攀爬"] },
+        { name: "桃園大有梯田生態公園", district: "桃園區", type: "生態/埤塘特色公園", img: "https://travel.tycg.gov.tw/content/images/attractions/65203/1024x768_attractions-image-1yfiqhwrauwnceq7dzljga.jpg", description: "全台首座梯田公園，規劃生態梯田區、美好食光區及森林挑戰區三大區域，提供全齡式森林遊戲場。", tags: ["生態", "梯田", "全齡式", "森林遊戲場", "溜索"] },
+        { name: "桃園汴洲公園", district: "桃園區", type: "主題式特色公園", img: "https://www.abic.com.tw/upload/typark_bianzhou/x03.jpg.pagespeed.ic.KTP0FMm5a7.jpg", description: "桃園第一座Pump Track場地，為單車滑板愛好者打造的專業極限運動公園。", tags: ["主題式", "極限運動", "單車", "滑板"] },
+        { name: "桃園溫州公園", district: "桃園區", type: "主題式特色公園", img: "https://ws.tycg.gov.tw/001/Upload/76/relpic/11348/648833/0.jpg", description: "以恐龍為主題的遊戲場，有劍龍磨石子溜滑梯、攀爬牆等遊具，充滿趣味性。", tags: ["主題式", "恐龍", "溜滑梯", "親子友善"] },
+        { name: "桃園頭洲魅力公園", district: "新屋區", type: "橋下空間利用公園", img: "https://ws.tycg.gov.tw/001/Upload/1/RelPic/7885/316603/4.jpg", description: "位於66快速道路下方，提供溜索、沙坑、溜滑梯等遊具，且有遮陽，雨天也能玩。", tags: ["橋下空間", "溜索", "沙坑", "遮陽"] },
+        { name: "桃園冒險公園", district: "桃園區", type: "橋下空間利用公園", img: "https://youyoutrip88.com/wp-content/uploads/2025/05/S__74375200-1024x768.jpg", description: "位於國道二號高架橋下，包含攀爬牆、攀爬網、磨石子溜滑梯等設施，是雨天最佳選擇。", tags: ["橋下空間", "攀爬", "溜滑梯", "室內"] },
+        { name: "八德埤塘生態公園", district: "八德區", type: "生態/埤塘特色公園", img: "https://travel.tycg.gov.tw/content/images/attractions/60110/1024x768_attractions-image-kajlslh8pegaxil2xnseda.jpg", description: "八德埤塘生態公園是桃園市最具規模和代表性的埤塘公園之一。它位於八德區，佔地廣闊，結合了埤塘景觀與多元的休憩設施。設有寬闊埤塘、環湖步道、草坪與綠地、親水空間、生態解說設施、咖啡廳與洗手間。園區內可見多種鳥類（如白鷺鶿、夜鷺、紅冠水雞等）、昆蟲及水生植物，是觀察自然生態的理想地點。", tags: ["生態", "埤塘", "環湖步道", "親子友善", "水鳥"] },
+        { name: "大楠森林公園", district: "八德區", type: "生態/埤塘特色公園", img: "https://travel.tycg.gov.tw/Image/82788/?r=1671066321894", description: "大楠森林公園（又稱大湳森林公園）位於桃園區與八德區交界處，前身為保一總隊舊址。近年來，經過活化與改造，已轉型為一座兼具森林綠意與歷史文化的都會型公園。園區內保留了大量的喬木林，形成鬱鬱蔥蔥的森林景觀，提供都市中的綠色庇護所。結合了生態滯洪功能，有助於雨水管理和生態多樣性。園區內融入了許多藝術裝置和活化後的舊建築，成為文化藝術的展演場所。規劃了多條步道，讓遊客漫步於林間，感受森林浴的靜謐，並設有適合兒童的遊樂設施。", tags: ["生態", "森林", "歷史文化", "親子友善", "藝術裝置"] },
+        { name: "青塘園", district: "中壢區", type: "生態/埤塘特色公園", img: "https://travel.tycg.gov.tw/content/images/attractions/24792/1024x768_attractions-image-vuf5si2vke2zjzdghhz9tg.jpg", description: "青塘園位於高鐵桃園站周邊，以裝置藝術和水岸風光聞名，是結合休閒、藝術與生態的代表性公園。經常舉辦藝術活動，吸引許多遊客。", tags: ["生態", "埤塘", "裝置藝術", "水岸", "休閒"] },
+        { name: "中原埤塘生態公園", district: "中壢區", type: "生態/埤塘特色公園", img: "https://img.ltn.com.tw/Upload/news/600/2017/08/04/2153320_5.jpg", description: "中原埤塘生態公園鄰近中原大學，提供周邊居民良好的休憩空間，並具備埤塘生態教育功能。", tags: ["生態", "埤塘", "教育", "休閒"] },
+        { name: "橫山書法藝術公園", district: "大園區", type: "生態/埤塘特色公園", img: "https://travel.tycg.gov.tw/content/images/attractions/75471/1024x768_attractions-image-ofk9_v0zeewyotl1mkwcbg.jpg", description: "橫山書法藝術公園結合了書法藝術元素與埤塘景觀，公園內設有橫山書法藝術館，展現了桃園的文化特色。建築師以公園為「硯台」、埤塘為「墨池」的意象進行設計。", tags: ["生態", "埤塘", "書法藝術", "文化"] }
+    ],
+    historicalSites: [
+        { name: "桃園大溪齋明寺", district: "大溪區", type: "祠廟類", img: "https://travel.tycg.gov.tw/content/images/attractions/70859/1024x768_attractions-image-mdjprzzo9ue38sgmhciizg.jpg", description: "位於大溪區，創建於清道光年間（約1824年），為桃園最古老的佛寺之一。建築融合了傳統閩南建築與日式風格，環境清幽，是重要的佛教叢林與文化地標。其正殿的木結構、石雕等工藝精湛，保存完整，具有高度的歷史、藝術及建築研究價值。", tags: ["國定古蹟", "寺廟", "佛教"] },
+        { name: "桃園景福宮 (大廟)", district: "桃園區", type: "祠廟類", img: "https://travel.tycg.gov.tw/content/images/attractions/13776/1024x768_files636032458708525214.jpg", description: "位於桃園區，創建於清乾隆年間（1742年），是桃園市區最重要且歷史最悠久的廟宇，主祀開漳聖王。其建築宏偉，雕飾華麗，是桃園地區的信仰中心與民間信仰活動的匯集地。", tags: ["市定古蹟", "寺廟", "信仰中心"] },
+        { name: "桃園慈護宮", district: "桃園區", type: "祠廟類", img: "https://travel.tycg.gov.tw/content/images/attractions/25718/1024x768_attractions-image-cwrvzmlr50iyro4md0il-w.jpg", description: "位於桃園區，創建於清嘉慶年間，主祀天上聖母媽祖。為桃園早期居民重要的信仰中心之一，建築風格古樸，見證了桃園地區的開發歷史。", tags: ["市定古蹟", "寺廟", "媽祖"] },
+        { name: "中壢仁海宮", district: "中壢區", type: "祠廟類", img: "https://travel.tycg.gov.tw/content/images/attractions/63887/1024x768_attractions-image-ro00jtwne0gb9dpvtuihcg.jpg", description: "仁海宮是中壢重要信仰中心。每年會舉辦媽祖繞境活動，聲勢浩大，近年也推廣「以米代金」、「以花代金」的環保祭祀理念。", tags: ["複合信仰", "傳統", "民俗", "媽祖"] },
+        { name: "大溪李騰芳古宅", district: "大溪區", type: "宅第類", img: "https://travel.tycg.gov.tw/content/images/attractions/3903/1024x768_Filedata635487363214589798.jpg", description: "位於大溪區月眉里，建於清末（1864-1869年），是清代舉人李騰芳的宅邸，也是台灣少見保存完整的舉人第。建築格局為一堂五室多護龍的四合院，雕刻、彩繪、泥塑等工藝精美，代表了當時的豪宅建築藝術，並反映了傳統農村社會的宗族聚落型態。", tags: ["市定古蹟", "古宅", "歷史建築"] },
+        { name: "蘆竹大夫第 (誠聖宮)", district: "蘆竹區", type: "宅第類", img: "https://images.chinatimes.com/newsphoto/2022-12-31/656/20221231002416.jpg", description: "位於蘆竹區，原為清代文官的宅邸，後因種種原因成為誠聖宮。其建築雖有改建，但仍保留部分清代宅第的格局與建築語彙，見證了地方宗族與信仰的變遷。", tags: ["市定古蹟", "古宅", "祠廟"] },
+        { name: "原中壢事件建築群 (原中壢警分局日式宿舍群)", district: "中壢區", type: "公共設施類", img: "https://albertblog.tw/wp-content/uploads/2021/09/1941zh_0128.jpg", description: "位於中壢區，為日治時期中壢郡役所附屬的官署宿舍，建築風格為日式木構造。這些建築見證了日治時期的行政體系，並與台灣民主發展史上重要的「中壢事件」有歷史連結。", tags: ["市定古蹟", "日式建築", "歷史事件"] },
+        { name: "桃園鐵路舊倉庫", district: "桃園區", type: "產業設施類", img: "https://tyrp.tycg.gov.tw/wp-content/uploads/2019/03/CHEN0208.jpg", description: "位於桃園區，是日治時期興建的鐵路倉庫，磚木構造。這些倉庫見證了台灣鐵路發展的歷史，以及桃園作為重要貨物集散地的地位。", tags: ["市定古蹟", "產業遺址", "鐵道"] },
+        { name: "大溪月眉通路", district: "大溪區", type: "城郭關塞類", img: "https://travel.tycg.gov.tw/content/images/attractions/103506/1024x768_attractions-image-omdhwj61iew0sbh7mfuxpa.jpg", description: "位於大溪區，是早期大溪與月眉地區往來的重要通道，具有歷史交通與防禦上的意義，見證了大溪地區的開發與防禦體系。", tags: ["市定古蹟", "古道", "歷史通道"] },
+    ],
+    touristFactories: [
+        { 
+            name: "手信霧隱城", 
+            district: "龍潭區", 
+            type: "食品餐飲", 
+            img: "https://travel.tycg.gov.tw/content/images/attractions/75193/1024x768_attractions-image-o6wml3ujmuyukpp0kmay5g.jpg", 
+            description: "以日本鎌倉時代為主題，打造城下町氛圍，有大紅鳥居、忍者元素，並可參觀透明生產線，提供日式甜點DIY體驗。", 
+            website: "https://www.3ssf.com.tw/", 
+            tags: ["觀光工廠", "日式", "親子"] 
+        },
+        { 
+            name: "郭元益糕餅博物館", 
+            district: "楊梅區", 
+            type: "食品餐飲", 
+            img: "https://travel.tycg.gov.tw/content/images/attractions/75928/1024x768_attractions-image-sl-mx99d5uywbmcscjhyfa.jpg", 
+            description: "歷史悠久的糕餅品牌，展示糕餅文化與製作過程，提供糕餅DIY體驗。", 
+            website: "", // 官網連結未查到
+            tags: ["觀光工廠", "糕餅", "DIY", "親子"] 
+        },
+        { 
+            name: "金格｜卡司．蒂菈樂園", 
+            district: "蘆竹區", 
+            type: "食品餐飲", 
+            img: "https://travel.tycg.gov.tw/content/images/attractions/75215/1024x768_attractions-image-iniy7-x4auytfajirwwhlg.jpg", 
+            description: "以年輪蛋糕為主題，結合環保綠建築概念，展示蛋糕製作流程，並有輕食餐飲區。", 
+            website: "https://castellaland.com/", 
+            tags: ["觀光工廠", "蛋糕", "環保", "親子"] 
+        },
+        { 
+            name: "葡萄王健康活力能量館", 
+            district: "平鎮區", 
+            type: "食品餐飲", 
+            img: "https://travel.tycg.gov.tw/content/images/attractions/22272/1024x768_attractions-image-zd7kgljd9uocdbg8ndrjgw.jpg", 
+            description: "介紹保健食品的知識與生產，並可品嚐益生菌霜淇淋等特色甜品。", 
+            website: "", // 官網連結未查到
+            tags: ["觀光工廠", "保健食品", "健康"] 
+        },
+        { 
+            name: "雄獅文具想像力製造所", 
+            district: "龍潭區", 
+            type: "文創藝術與生活應用", 
+            img: "https://travel.tycg.gov.tw/content/images/attractions/67529/1024x768_attractions-image-hp05a0k3xuow-lbsfkuvrq.jpg", 
+            description: "結合文具與藝術，空間設計充滿色彩與泡泡元素，提供多樣化的創意彩繪及 DIY 課程。", 
+            website: "http://www.simbalionartstudio.com/", 
+            tags: ["觀光工廠", "文具", "DIY", "親子", "文創"] 
+        },
+        { 
+            name: "東和音樂體驗館", 
+            district: "大溪區", 
+            type: "文創藝術與生活應用", 
+            img: "https://photo.travelking.com.tw/scenery/D68CE5FB-3B69-4BD4-AD03-57020DD4D202_e.jpg", 
+            description: "透過參觀鋼琴生產線，以及直笛、口琴、鋼琴模型DIY，了解樂器構造和發聲原理，設有聲音體驗區。", 
+            website: "http://www.music4fun.com.tw/", 
+            tags: ["觀光工廠", "音樂", "DIY", "親子"] 
+        },
+        { 
+            name: "大溪老茶廠", 
+            district: "大溪區", 
+            type: "文創藝術與生活應用", 
+            img: "https://travel.tycg.gov.tw/content/images/attractions/34120/1024x768_attractions-image-foxkg865kkkztkogulbyeq.jpg", 
+            description: "日式懷舊風格的茶廠，保留歷史建築與製茶設備，可品茗、了解製茶工藝，並感受茶文化氛圍。", 
+            website: "http://www.daxitea.com/", 
+            tags: ["觀光工廠", "茶廠", "文創", "品茗"] 
+        },
+        { 
+            name: "太平洋自行車博物館", 
+            district: "新屋區", 
+            type: "文創藝術與生活應用", 
+            img: "https://travel.tycg.gov.tw/content/images/attractions/60178/1024x768_attractions-image-qnhovp0lvkgnlrfhujkxag.jpg", 
+            description: "展示各式特殊自行車，包括摺疊車、電動車等，並介紹自行車的發展歷史與文化。", 
+            website: "http://www.pacificcyclesmuseum.com/", 
+            tags: ["觀光工廠", "自行車", "博物館"] 
+        },
+        { 
+            name: "利百代彩筆文創館", 
+            district: "桃園區", 
+            type: "文創藝術與生活應用", 
+            img: "https://travel.tycg.gov.tw/content/images/shops/67431/1024x768_shops-image-ao-lvaqtveq4ysg5-nz-dw.jpg", 
+            description: "了解文具用品的製作過程，尤其聚焦於彩色筆的生產，並有相關的文創商品。", 
+            website: "http://www.libertycc.com.tw/", 
+            tags: ["觀光工廠", "文具", "文創", "DIY"] 
+        },
+        { 
+            name: "祥儀機器人夢工廠未來館", 
+            district: "桃園區", 
+            type: "科技與健康", 
+            img: "https://robot.shayangye.com/Files/Images/%E6%9C%AA%E4%BE%86%E9%A4%A8%E4%BB%8B%E7%B4%B9/A-(12).jpg", 
+            description: "全台唯一的機器人觀光工廠，展出超過30種不同類型和功能的機器人，透過專業導覽了解科技的歷史與未來。", 
+            website: "http://robot.shayangye.com/", 
+            tags: ["觀光工廠", "機器人", "科技", "親子"] 
+        },
+        { 
+            name: "雅聞魅力博覽館 (楊梅館)", 
+            district: "楊梅區", 
+            type: "科技與健康", 
+            img: "https://travel.tycg.gov.tw/content/images/shops/21678/1024x768_files636353020754760145.jpg", 
+            description: "以化妝品、保養品為主題，結合歐式宮廷花園與峇里島風咖啡廳，提供香草植物體驗與產品介紹。", 
+            website: "https://travel.tycg.gov.tw/zh-tw/travel/attraction/119", 
+            tags: ["觀光工廠", "美妝", "保養品", "花園"] 
+        },
+        { 
+            name: "自然接觸保養品亮點體驗園", 
+            district: "楊梅區", 
+            type: "科技與健康", 
+            img: "https://travel.tycg.gov.tw/content/images/page/Beauty-attraction-1575.jpg", 
+            description: "深入了解保養品的成分與製作，並強調自然、健康的理念。", 
+            website: "http://www.ntnt.com.tw/", 
+            tags: ["觀光工廠", "保養品", "健康"] 
+        },
+    ],
+    dayTrips: [
+        {
+            name: "自然生態與湖光山色之旅",
+            theme: "自然生態",
+            description: "親近大自然，享受湖畔風光與森林浴，適合喜愛戶外活動者。",
+            attractions: ["石門水庫", "大溪老街", "角板山行館"],
+            schedule: "09:00 抵達石門水庫，欣賞水庫風光。\n11:00 前往大溪老街，漫步與品嚐小吃。\n13:30 午餐於大溪老街。\n15:00 前往角板山行館，參觀行館與梅園（花季限定）。\n17:00 賦歸。",
+            food: "午餐：大溪老街豆干、月光餅、花生糖、大溪傳統小吃（麵食、米糕）。\n下午茶：石門水庫活魚多吃（若想體驗，可將午餐移至水庫周邊餐廳）。",
+            transportation: "建議自駕，或搭乘台灣好行石門水庫線。",
+            notes: "夏季注意防曬與補充水分，春秋兩季是最佳旅遊時間。石門水庫可租借腳踏車環湖。",
+            tags: ["自然", "湖泊", "健行", "文化", "美食", "家庭"]
+        },
+        {
+            name: "歷史文化與懷舊風情之旅",
+            theme: "歷史文化",
+            description: "探索桃園的歷史脈絡與在地文化，感受時光流轉的魅力。",
+            attractions: ["虎頭山創新園區（原桃園神社）", "桃園眷村故事館", "中壢老街（或新屋范姜古厝）"],
+            schedule: "09:30 參觀虎頭山創新園區，體驗日式風情。\n11:30 前往桃園眷村故事館，了解眷村歷史。\n13:00 午餐於中壢老街（或鄰近餐廳）。\n14:30 漫步中壢老街，或前往新屋范姜古厝參觀。\n17:00 賦歸。",
+            food: "午餐：中壢老街肉圓、客家粄條、牛肉麵。\n點心：眷村美食（如：涼麵、麵食、燒餅）。",
+            transportation: "建議自駕或搭乘公車。桃園車站附近公車路線多，可轉乘至各景點。",
+            notes: "虎頭山園區假日人潮較多，建議提早前往。眷村故事館有導覽服務，可預約參加。",
+            tags: ["歷史", "文化", "懷舊", "眷村", "客家", "建築"]
+        },
+        {
+            name: "親子同樂與樂活體驗之旅",
+            theme: "親子同樂",
+            description: "專為家庭設計，結合遊憩、學習與互動，讓大人小孩都能盡興。",
+            attractions: ["Xpark 水族館", "華泰名品城", "青塘園"],
+            schedule: "10:00 進入 Xpark 水族館，盡情探索海洋世界。\n13:00 午餐於華泰名品城。\n14:30 在華泰名品城購物或喝下午茶。\n16:00 前往青塘園散步、拍照。\n17:30 賦歸。",
+            food: "午餐：華泰名品城內各國美食餐廳、速食店。\n點心：便利商店或超市購買點心至青塘園野餐。",
+            transportation: "Xpark與華泰名品城皆位於桃園高鐵站旁，交通便利，可搭乘高鐵或台鐵至桃園站，再步行或短程計程車。青塘園步行可達。",
+            notes: "Xpark假日人潮眾多，建議提早購票或平日前往。華泰名品城折扣商品眾多，小心荷包失血。青塘園蚊蟲較多，建議做好防蚊措施。",
+            tags: ["親子", "家庭", "水族館", "購物", "公園", "戶外"]
+        },
+        {
+            name: "藝術文創與咖啡香之旅",
+            theme: "藝術文創",
+            description: "沉浸在藝術氛圍中，感受在地文創的活力，並享受悠閒的咖啡時光。",
+            attractions: ["中壢馬祖新村文創園區", "手信坊創意和菓子文化館", "桃園市區特色咖啡廳"],
+            schedule: "09:30 抵達中壢馬祖新村文創園區，逛逛特色店家。\n11:30 體驗手作坊課程（如：皮革、陶藝）。\n13:00 午餐於園區內或附近特色餐廳。\n14:30 前往手信坊創意和菓子文化館，參觀與DIY體驗。\n16:30 選擇一家桃園市區特色咖啡廳，享受下午茶。\n18:00 賦歸。",
+            food: "午餐：馬祖新村園區內簡餐或咖啡廳輕食。\n下午茶：手信坊和菓子、特色咖啡廳飲品與甜點。",
+            transportation: "建議自駕或搭乘公車至中壢，再轉乘計程車或短程公車。",
+            notes: "文創園區內部分店家營業時間不同，建議事先查詢。DIY課程需提前預約。",
+            tags: ["文創", "藝術", "咖啡", "DIY", "眷村", "日式"]
+        },
+        {
+            name: "療癒放鬆與香草花園之旅",
+            theme: "療癒放鬆",
+            description: "遠離塵囂，在香草與花卉的圍繞下，享受身心靈的放鬆與療癒。",
+            attractions: ["桃園花彩節（限定）", "好時節休閒農場", "觀音蓮花園休閒農業區"],
+            schedule: "09:30 抵達好時節休閒農場，體驗DIY活動。\n12:00 午餐於農場內享用窯烤餐點。\n14:00 若是花彩節期間，前往花彩節展區賞花。若非，可前往觀音蓮花園休閒農業區。\n16:30 在蓮花園區品嚐蓮花點心或逛特色農場。\n17:30 賦歸。",
+            food: "午餐：好時節休閒農場窯烤披薩、麵包。\n下午茶：觀音蓮子甜點、蓮花茶。",
+            transportation: "建議自駕，部分農場交通較不便。",
+            notes: "花彩節為季節性活動，需注意時間。蓮花盛開期在夏季，若非夏季前往，蓮花園區的景色會略有不同。",
+            tags: ["花卉", "農場", "療癒", "季節限定", "DIY", "自然"]
+        },
+        {
+            name: "品味美食與在地小吃之旅",
+            theme: "美食探索",
+            description: "專為美食愛好者打造，深入桃園街頭巷尾，發掘在地美味。",
+            attractions: ["中壢夜市（新明觀光夜市）", "大溪老街", "桃園觀光夜市"],
+            schedule: "11:00 抵達大溪老街，品嚐傳統小吃與午餐。\n14:00 前往桃園市區，逛逛桃園觀光夜市周邊的白天美食店家。\n17:00 前往中壢夜市，準備開啟夜市美食之旅。\n17:30 開始品嚐中壢夜市各式美食。\n20:00 賦歸。",
+            food: "大溪：豆干、月光餅、花生糖、古早味麵食（麵食、米糕）。\n桃園：阿昌麵線、蒸餃、筒仔米糕。\n中壢夜市：排骨酥、蚵仔煎、大腸麵線、粉圓、臭豆腐、地瓜球。",
+            transportation: "建議搭乘大眾運輸工具，例如火車到中壢站或桃園站，再步行或搭公車前往夜市，方便停車與品嚐美食。",
+            notes: "夜市人潮眾多，注意隨身財物。可先上網查詢推薦店家，避免踩雷。",
+            tags: ["美食", "小吃", "夜市", "老街", "在地"]
+        },
+        {
+            name: "異國風情與機場周邊樂活之旅",
+            theme: "異國風情",
+            description: "結合桃園機場周邊的特色景點，感受異國風情與便利的旅遊體驗。",
+            attractions: ["桃園機場二航廈觀景台", "奇麗灣珍奶文化館", "大園竹圍漁港"],
+            schedule: "10:00 抵達桃園機場二航廈，前往觀景台欣賞飛機。\n11:30 在機場內享用早午餐或逛免稅店。\n13:00 前往奇麗灣珍奶文化館，參觀與DIY。\n15:30 前往竹圍漁港，逛漁市、準備品嚐海鮮。\n17:00 在竹圍漁港享用海鮮晚餐或欣賞夕陽。\n19:00 賦歸。",
+            food: "午餐：機場內餐廳或珍奶文化館輕食。\n晚餐：竹圍漁港海鮮餐廳。",
+            transportation: "建議自駕。若搭乘大眾運輸，可搭乘機場捷運至機場，再轉乘計程車或公車前往其他景點。",
+            notes: "漁港海產價格可稍微議價。若有時間，可考慮在機場周邊的特色旅館住宿一晚。",
+            tags: ["機場", "異國", "海鮮", "夕陽", "DIY", "特色"]
+        },
+        {
+            name: "綠色隧道與鐵馬漫遊之旅",
+            theme: "單車漫遊",
+            description: "騎乘單車，穿梭於綠色隧道中，享受大自然與運動的樂趣。",
+            attractions: ["新屋綠色隧道", "永安漁港", "藻礁生態區"],
+            schedule: "09:30 抵達新屋綠色隧道租借單車。\n10:00 開始騎乘綠色隧道，享受海風與林蔭。\n12:30 抵達永安漁港，午餐享用海鮮。\n14:00 在永安漁港周邊逛逛或視潮汐前往藻礁區。\n15:30 騎單車返回或搭車回租車點。\n17:00 賦歸。",
+            food: "午餐：永安漁港海鮮餐廳。\n點心：漁港周邊小吃、烤魷魚。",
+            transportation: "建議自駕前往，因單車租借點交通較不便。",
+            notes: "注意防曬，尤其夏季。騎單車時注意安全。藻礁生態區需配合潮汐，務必事先查詢。",
+            tags: ["自行車", "戶外", "自然", "漁港", "海鮮", "生態"]
+        },
+        {
+            name: "山林秘境與採茶品茗之旅",
+            theme: "茶園體驗",
+            description: "深入桃園的茶鄉，感受山林寧靜，體驗採茶製茶的樂趣，品嚐香醇茶葉。",
+            attractions: ["拉拉山風景區（或東眼山森林遊樂區）", "大溪老茶廠", "茶莊或茶園體驗"],
+            schedule: "09:00 抵達拉拉山風景區（或東眼山），健行享受森林浴。\n12:30 在山區附近享用午餐（原住民風味餐或簡餐）。\n14:00 前往大溪老茶廠，參觀與品茶。\n16:00 若時間允許，可選擇一家茶園體驗採茶或購買茶葉。\n17:30 賦歸。",
+            food: "午餐：拉拉山區原住民風味餐，或大溪老茶廠輕食、茶點。\n下午茶：各式茶點、高山烏龍茶。",
+            transportation: "建議自駕，山區交通不便。",
+            notes: "山區氣溫較低，建議攜帶保暖衣物。注意山路行車安全。拉拉山水蜜桃產季在夏季，若想品嚐需注意季節。",
+            tags: ["山林", "茶園", "採茶", "品茗", "自然", "文化"]
+        },
+        {
+            name: "觀光工廠樂趣探索之旅",
+            theme: "觀光工廠",
+            description: "探訪桃園各具特色的觀光工廠，了解產業知識，並親身體驗DIY樂趣。",
+            attractions: ["雄獅文具想像力製造所", "手信霧隱城", "金格｜卡司．蒂菈樂園"],
+            schedule: "09:30 抵達雄獅文具想像力製造所，盡情彩繪與DIY。\n12:00 午餐於雄獅文具或附近。\n13:30 前往手信霧隱城，感受日式城堡氛圍與甜點DIY。\n15:30 參觀金格｜卡司．蒂菈樂園，了解蛋糕製程並品嚐。\n17:00 賦歸。",
+            food: "午餐：觀光工廠內輕食或周邊餐廳。\n點心：日式甜點、年輪蛋糕。",
+            transportation: "建議自駕，各觀光工廠地點較分散。",
+            notes: "部分觀光工廠的DIY體驗需額外付費且需預約，建議事先查詢。假日人潮可能較多。",
+            tags: ["觀光工廠", "DIY", "親子", "食品", "文創"]
+        }
+    ],
+    introduction: `
+        <div class="introduction-section-content grid grid-cols-1 lg:grid-cols-2 gap-8"> <!-- 使用 grid 系統 -->
+            <div class="introduction-text-content">
+                <h2>桃園市簡介</h2>
+                <p>桃園市，位於台灣西北部，近年來發展迅速，不僅是台灣重要的工商城市，也擁有豐富的人文歷史和自然景觀。以下是針對桃園的人物、旅遊景點、美食、節慶活動、特色公園與古蹟的簡單摘要：</p>
+                <h3>桃園人物</h3>
+                <p>桃園因其多元的族群融合，孕育出許多不同領域的傑出人物。在歷史上，有客家、閩南、原住民等群體在此開墾生活，共同塑造了桃園的城市特色。當代，許多政治、經濟、文化及體育界的名人皆與桃園有淵源，他們的故事也反映了桃園從農業社會轉型為現代化都市的進程。</p>
+                <h3>桃園旅遊景觀</h3>
+                <ul>
+                    <li><strong>都會風貌：</strong> 桃園市區擁有現代化的商業區、購物中心和高樓大廈，展現了都會的活力。Xpark水族館是近年熱門的都會型海洋生態館。</li>
+                    <li><strong>海岸風光：</strong> 西海岸線擁有觀音草漯沙丘、許厝港濕地等特殊地景，是觀鳥和欣賞日落的好去處。</li>
+                    <li><strong>丘陵與台地：</strong> 桃園台地是其地形特色，早期遍布埤塘，形成獨特的「千塘之鄉」景觀。許多埤塘如今已轉型為公園或休閒場所。</li>
+                    <li><strong>自然生態與人文景點：</strong> 北橫公路沿線的山區擁有豐富的自然資源，如拉拉山自然保護區，以其神木群和水蜜桃聞名。慈湖和石門水庫是結合了湖光山色與人文歷史的熱門景點，尤其慈湖陵寢是兩蔣文化園區的一部分。</li>
+                    <li><strong>老街文化：</strong> 大溪老街以其巴洛克式建築、特色商店和在地美食吸引眾多遊客，充滿懷舊風情。</li>
+                </ul>
+                <h3>桃園美食</h3>
+                <ul>
+                    <li><strong>大溪豆干：：</strong> 遠近馳名，有各種滷製、煙燻口味，是大溪老街必嚐的特色小吃。</li>
+                    <li><strong>龍岡米干：：</strong> 受到滇緬文化影響，以Q彈的米干搭配豐富的配料和獨特的湯頭，風味獨具。</li>
+                    <li><strong>客家菜餚：：</strong> 因客家族群眾多，各式道地的客家菜如客家小炒、薑絲大腸、粄條等，在桃園各地皆可品嚐。</li>
+                    <li><strong>湖畔咖啡：</strong> 在慈湖、石門水庫等景點周邊，有許多景觀餐廳和咖啡廳，提供美食的同時也能欣賞湖光山色。</li>
+                </ul>
+                <h3>桃園節慶活動</h3>
+                <ul>
+                    <li><strong>桃園燈會：：</strong> 每年元宵節期間舉辦，以多元燈飾和文化表演吸引遊客。</li>
+                    <li><strong>大溪豆干節：：</strong> 結合大溪豆干的在地特色，舉辦各種美食攤位和文化體驗活動。</li>
+                    <li><strong>龍岡米干節：：</strong> 以龍岡地區的滇緬文化為主題，推廣米干美食和異國風情。</li>
+                    <li><strong>桃園花彩節：</strong> 在特定花卉季節，於不同行政區舉辦大型花海展覽，吸引大量遊客。</li>
+                </ul>
+                <h3>桃園特色公園</h3>
+                <ul>
+                    <li><strong>虎頭山公園：：</strong> 鄰近市區，擁有豐富的自然步道、奧爾森林學堂，是市民休閒的好去處。</li>
+                    <li><strong>青塘園：：</strong> 以其優美的地景藝術、埤塘生態和天鵝橋聞名，是結合藝術與自然的特色公園。</li>
+                    <li><strong>橫山書法藝術公園：：</strong> 結合書法藝術與日式庭園風格，營造出獨特的文化氛圍。</li>
+                    <li><strong>陽明運動公園：</strong> 提供多樣的運動設施與休憩空間，適合親子同樂。</li>
+                </ul>
+                <h3>桃園古蹟</h3>
+                <ul>
+                    <li><strong>李騰芳古宅：：</strong> 位於大溪，是台灣少數保存完整的清代傳統合院建築，具高度歷史與建築藝術價值。</li>
+                    <li><strong>大溪老街：</strong> 雖然是商業街區，但其保存的巴洛克式立面建築群本身就是重要的歷史資產。</li>
+                    <li><strong>桃園忠烈祠（原桃園神社）：：</strong> 為日治時期所建的神社，保留了完整的日式建築風格，現為忠烈祠。</li>
+                    <li><strong>大溪橋：</strong> 具有百年歷史的橋樑，連結大溪老街與河岸，其仿巴洛克風格的牌樓是重要地標。</li>
+                </ul>
+                <p>總體而言，桃園是一座充滿活力的城市，其豐富的歷史底蘊、多元的自然景觀、獨特的美食、熱鬧的節慶以及不斷發展的人文特色，使其在台灣扮演著越來越重要的角色，並成為值得深入探索的旅遊目的地。</p>
+            </div>
+            <div class="introduction-map-content">
+                <h3>桃園旅遊景點地圖</h3>
+                <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d14460.916172777322!2d121.3191229!3d24.9880729!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3468249826f1c42f%3A0x6b6e5e8e8e8e8e8e!2z5qGD5ZyL5ruJ6LOH5Z-O5ZyS5ZyS5ZyS5ZyS5ZyS!5e0!3m2!1szh-TW!2stw!4v1700000000000!5m2!1szh-TW!2stw" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+        </div>
+    `,
+    // 新增的操作說明內容
+    instructions: `
+        <div class="bg-white rounded-lg shadow-xl p-6 md:p-10 max-w-4xl mx-auto">
+            <h2 class="text-3xl font-bold mb-8 text-center text-sky-700 border-b-2 border-sky-200 pb-4">桃園旅遊導覽功能與操作說明</h2>
+            <div class="space-y-8 text-gray-800 text-lg leading-relaxed">
+
+                <div>
+                    <h3 class="text-2xl font-bold text-sky-600 mb-3 flex items-center"><i class="fas fa-filter mr-3"></i>1. 主要篩選器 (Main Filters)</h3>
+                    <p>頁面上方有一排主要按鈕，用於切換不同的旅遊主題類別，包括：桃園簡介、旅遊景點、特色美食、節慶活動、廟宇節慶、特色公園、古蹟尋訪、觀光工廠及一日遊規劃。</p>
+                    <p class="mt-2"><strong>操作方式：</strong>點擊任一主要篩選按鈕，頁面內容會即時更新，顯示該類別的相關資訊。</p>
+                </div>
+
+                <div>
+                    <h3 class="text-2xl font-bold text-sky-600 mb-3 flex items-center"><i class="fas fa-sliders-h mr-3"></i>2. 次要篩選器 (Secondary Filters)</h3>
+                    <p>在主要篩選器下方，會根據您選擇的主題顯示不同的次要篩選按鈕，用於更細緻地篩選內容（例如：依區域、類型、月份等）。</p>
+                    <p class="mt-2"><strong>操作方式：</strong>點擊次要按鈕，可以進一步過濾顯示的項目。</p>
+                </div>
+
+                <div>
+                    <h3 class="text-2xl font-bold text-sky-600 mb-3 flex items-center"><i class="fas fa-th-large mr-3"></i>3. 內容顯示 (Content Display)</h3>
+                    <p>根據您的篩選條件，頁面中央會以卡片或列表形式顯示對應的內容。</p>
+                    <p class="mt-2"><strong>操作方式：</strong>點擊任何一張卡片或列表項目，會彈出一個詳細資訊視窗。</p>
+                </div>
+
+                <div>
+                    <h3 class="text-2xl font-bold text-sky-600 mb-3 flex items-center"><i class="fas fa-volume-up mr-3"></i>4. 模態視窗與語音導讀</h3>
+                    <p>彈出的詳細資訊視窗內建了語音導讀功能。</p>
+                    <ul class="list-disc list-inside mt-2 pl-4 space-y-1">
+                        <li><strong>播放/暫停/停止：</strong>使用對應按鈕控制語音。</li>
+                        <li><strong>進度條：</strong>顯示語音朗讀的進度。</li>
+                        <li><strong>關閉：：</strong>點擊右上角的「×」或按 Esc 鍵關閉視窗。</li>
+                    </ul>
+                </div>
+
+                 <div>
+                    <h3 class="text-2xl font-bold text-sky-600 mb-3 flex items-center"><i class="fas fa-info-circle mr-3"></i>5. 總體使用說明</h3>
+                     <ol class="list-decimal list-inside mt-2 pl-4 space-y-2">
+                        <li><strong>選擇主題：</strong>從上方的主要篩選器開始。</li>
+                        <li><strong>細化條件：</strong>使用次要篩選器縮小範圍。</li>
+                        <li><strong>瀏覽內容：</strong>查看中央區域顯示的結果。</li>
+                        <li><strong>查看詳情：：</strong>點擊項目以打開詳細資訊視窗。</li>
+                        <li><strong>聆聽導讀：</strong>在詳細資訊視窗中使用語音功能。</li>
+                    </ol>
+                </div>
+
+            </div>
+        </div>
+    `
+};
+
+// --- 全域變數 (Global Variables) ---
+let currentMainFilter = 'introduction'; // 預設顯示桃園簡介
+let currentSecondaryFilter = 'all';
+
+// 語音相關變數
+let speechSynthesis = window.speechSynthesis;
+let currentUtterance = null;
+let speechProgressInterval = null;
+let isSpeaking = false;
+
+// 簡介語音控制變數
+let introSpeechBtn = null;
+let introIsSpeaking = false;
+let introCurrentUtterance = null;
+
+// --- DOM 元素 (DOM Elements) ---
+const mainFilterContainer = document.getElementById('main-filter-container');
+const secondaryFilterContainer = document.getElementById('secondary-filter-container');
+const contentGrid = document.getElementById('content-grid');
+const modal = document.getElementById('modal');
+const modalContent = document.getElementById('modal-content');
+const modalBody = document.getElementById('modal-body');
+const modalClose = document.getElementById('modal-close');
+const playBtn = document.getElementById('play-btn');
+const pauseBtn = document.getElementById('pause-btn');
+const stopBtn = document.getElementById('stop-btn');
+const progressBar = document.getElementById('progress-bar');
+const voiceStatus = document.getElementById('voice-status');
+const introVoiceBtn = document.getElementById('introduction-voice-btn');
+
+// --- 函式 (Functions) ---
+
+// 渲染卡片 (此函數只用於顯示卡片，不處理簡介和一日遊規劃)
+function renderCards(items) {
+    // 確保 contentGrid 應用卡片網格的 class
+    contentGrid.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6';
+    
+    contentGrid.innerHTML = '';
+    if (items.length === 0) {
+        contentGrid.innerHTML = `<p class="text-center text-gray-500 col-span-full">找不到符合條件的項目。</p>`;
+        return;
+    }
+    items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card bg-white rounded-lg shadow-md overflow-hidden';
+        
+        let additionalInfo = '';
+        if (currentMainFilter === 'festivals' || currentMainFilter === 'templeFestivals') {
+            if (item.date) additionalInfo += `<p class="text-sm text-gray-600 mb-2">日期: ${item.date}</p>`;
+            if (item.district) additionalInfo += `<p class="text-sm text-gray-600 mb-2">地點: ${Array.isArray(item.district) ? item.district.join(', ') : item.district}</p>`;
+        } else if (currentMainFilter === 'parks' || currentMainFilter === 'historicalSites' || currentMainFilter === 'touristFactories') {
+            if (item.district) additionalInfo += `<p class="text-sm text-gray-600 mb-2">區域: ${Array.isArray(item.district) ? item.district.join(', ') : item.district}</p>`;
+            if (item.type) additionalInfo += `<p class="text-sm text-gray-600 mb-2">類型: ${item.type}</p>`;
+        } else if (item.district) {
+            additionalInfo = `<p class="text-sm text-gray-600 mb-2">${Array.isArray(item.district) ? item.district.join(', ') : item.district}</p>`;
+        }
+
+        const imgSrc = item.img && item.img !== "" ? item.img : 'https://placehold.co/400x300/e2e8f0/64748b?text=圖片載入失敗';
+        
+        card.innerHTML = `
+            <img src="${imgSrc}" alt="${item.name}" class="w-full h-48 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/400x300/e2e8f0/64748b?text=圖片載入失敗'">
+            <div class="p-4">
+                <h3 class="text-lg font-bold">${item.name}</h3>
+                ${additionalInfo}
+                <div class="flex flex-wrap gap-1 mt-2">
+                    ${(item.tags || []).map(tag => `<span class="bg-sky-100 text-sky-800 text-xs font-medium px-2.5 py-0.5 rounded-full">${tag}</span>`).join('')}
+                </div>
+            </div>
+        `;
+        card.addEventListener('click', () => openModal(item));
+        contentGrid.appendChild(card);
+    });
+}
+
+// 渲染一日遊規劃列表
+function renderDayTripPlans(plans) {
+    contentGrid.className = 'w-full mx-auto grid grid-cols-1 gap-6';
+    contentGrid.innerHTML = '';
+    if (plans.length === 0) {
+        contentGrid.innerHTML = `<p class="text-center text-gray-500 col-span-full">找不到符合條件的一日遊規劃。</p>`;
+        return;
+    }
+    plans.forEach(plan => {
+        const planDiv = document.createElement('div');
+        planDiv.className = 'day-trip-plan cursor-pointer';
+        planDiv.innerHTML = `
+            <h3>${plan.name} <span class="text-base text-gray-600">(${plan.theme}之旅)</span></h3>
+            <p class="text-gray-700">${plan.description}</p>
+        `;
+        planDiv.addEventListener('click', () => openModal(plan));
+        contentGrid.appendChild(planDiv);
+    });
+}
+
+// 開啟詳細資訊彈窗
+function openModal(item) {
+    let modalContentHtml = '';
+    if (currentMainFilter === 'dayTrips') {
+        modalContentHtml = `
+            <h2 class="text-3xl font-bold mb-4 text-sky-600">${item.name}</h2>
+            <p class="speak-section text-gray-700 leading-relaxed mb-4">${item.description}</p>
+            <h4 class="text-xl font-semibold mb-2">景點介紹:</h4>
+            <p class="speak-section text-gray-700 leading-relaxed mb-4">${item.attractions.join('、')}</p>
+            <h4 class="text-xl font-semibold mb-2">時程安排:</h4>
+            <pre class="speak-section bg-gray-100 p-3 rounded-md overflow-auto text-gray-800 leading-relaxed whitespace-pre-wrap">${item.schedule}</pre>
+            <h4 class="text-xl font-semibold mt-4 mb-2">飲食安排:</h4>
+            <pre class="speak-section bg-gray-100 p-3 rounded-md overflow-auto text-gray-800 leading-relaxed whitespace-pre-wrap">${item.food}</pre>
+            <h4 class="text-xl font-semibold mt-4 mb-2">交通規劃:</h4>
+            <pre class="speak-section bg-gray-100 p-3 rounded-md overflow-auto text-gray-800 leading-relaxed whitespace-pre-wrap">${item.transportation}</pre>
+            <h4 class="text-xl font-semibold mt-4 mb-2">注意事項:</h4>
+            <pre class="speak-section bg-gray-100 p-3 rounded-md overflow-auto text-gray-800 leading-relaxed whitespace-pre-wrap">${item.notes}</pre>
+            <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-200">
+                <h4 class="text-lg font-bold mb-2 w-full">相關標籤:</h4>
+                ${(item.tags || []).map(tag => `<span class="bg-pink-100 text-pink-800 text-sm font-semibold px-3 py-1 rounded-full">${tag}</span>`).join('')}
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <h4 class="text-lg font-bold mb-2">相關資訊連結</h4>
+                <a href="https://www.google.com/search?q=${encodeURIComponent(item.name + ' 桃園')}" target="_blank" class="inline-block bg-blue-500 text-white font-semibold py-2 px-4 rounded-full hover:bg-blue-600 transition duration-300 mr-2 mb-2">
+                    Google 搜尋 "${item.name}"
+                </a>
+            </div>
+        `;
+    } else {
+        let additionalInfoHtml = '';
+        if (currentMainFilter === 'festivals' || currentMainFilter === 'templeFestivals') {
+            if (item.date) additionalInfoHtml += `<p class="text-gray-500 mb-2">日期: ${item.date}</p>`;
+            if (item.district) additionalInfoHtml += `<p class="text-gray-500 mb-4">地點: ${Array.isArray(item.district) ? item.district.join(', ') : item.district}</p>`;
+        } else if (currentMainFilter === 'parks' || currentMainFilter === 'historicalSites' || currentMainFilter === 'touristFactories') {
+            if (item.district) additionalInfoHtml += `<p class="text-sm text-gray-600 mb-2">區域: ${Array.isArray(item.district) ? item.district.join(', ') : item.district}</p>`;
+            if (item.type) additionalInfoHtml += `<p class="text-sm text-gray-600 mb-4">類型: ${item.type}</p>`;
+        } else if (item.district) {
+            additionalInfoHtml = `<p class="text-gray-500 mb-4">${Array.isArray(item.district) ? item.district.join(', ') : item.district}</p>`;
+        }
+
+        let websiteLinkHtml = '';
+        if (item.website && item.website !== "") {
+            websiteLinkHtml = `<a href="${item.website}" target="_blank" class="inline-block bg-sky-500 text-white font-semibold py-2 px-4 rounded-full hover:bg-sky-600 transition duration-300 mr-2 mb-2">官方網站</a>`;
+        }
+
+        const imgSrc = item.img && item.img !== "" ? item.img : 'https://placehold.co/600x400/e2e8f0/64748b?text=圖片載入失敗';
+
+        modalContentHtml = `
+            <img src="${imgSrc}" alt="${item.name}" class="w-full h-64 object-cover rounded-lg mb-4" onerror="this.onerror=null;this.src='https://placehold.co/600x400/e2e8f0/64748b?text=圖片載入失敗'">
+            <h2 class="speak-title text-3xl font-bold mb-2">${item.name}</h2>
+            ${additionalInfoHtml}
+            <p class="speak-description text-gray-700 leading-relaxed mb-4">${item.description}</p>
+            <div class="flex flex-wrap gap-2">
+                ${(item.tags || []).map(tag => `<span class="bg-gray-200 text-gray-800 text-sm font-semibold px-3 py-1 rounded-full">${tag}</span>`).join('')}
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <h4 class="text-lg font-bold mb-2">相關資訊連結</h4>
+                ${websiteLinkHtml}
+                <a href="https://www.google.com/search?q=${encodeURIComponent(item.name + ' 桃園')}" target="_blank" class="inline-block bg-blue-500 text-white font-semibold py-2 px-4 rounded-full hover:bg-blue-600 transition duration-300 mr-2 mb-2">
+                    Google 搜尋 "${item.name}"
+                </a>
+            </div>
+        `;
+    }
+
+    modalBody.innerHTML = modalContentHtml;
+    modal.classList.remove('hidden');
+    stopSpeech();
+    startSpeech();
+}
+
+// 關閉彈窗
+function closeModal() {
+    stopSpeech();
+    modal.classList.add('hidden');
+}
+
+// 語音相關功能
+function startSpeech() {
+    stopSpeech();
+    let textToSpeak = '';
+    if (currentMainFilter === 'dayTrips') {
+        const sections = modalBody.querySelectorAll('.speak-section');
+        sections.forEach(section => textToSpeak += section.textContent + '。\n');
+    } else {
+        const titleElement = modalBody.querySelector('.speak-title');
+        const descriptionElement = modalBody.querySelector('.speak-description');
+        if (titleElement) textToSpeak += titleElement.textContent + '。';
+        if (descriptionElement) textToSpeak += descriptionElement.textContent;
+    }
+    if (textToSpeak) {
+        currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
+        currentUtterance.lang = 'zh-TW';
+        voiceStatus.textContent = '朗讀中...';
+        isSpeaking = true;
+        speechSynthesis.speak(currentUtterance);
+        startProgressBar();
+        currentUtterance.onend = () => {
+            stopSpeech();
+            voiceStatus.textContent = '朗讀完成';
+        };
+    }
+}
+
+function pauseSpeech() {
+    if (isSpeaking) {
+        speechSynthesis.pause();
+        isSpeaking = false;
+        voiceStatus.textContent = '已暫停';
+        clearInterval(speechProgressInterval);
+    }
+}
+
+function resumeSpeech() {
+    if (speechSynthesis.paused) {
+        speechSynthesis.resume();
+        isSpeaking = true;
+        voiceStatus.textContent = '朗讀中...';
+        startProgressBar();
+    }
+}
+
+function stopSpeech() {
+    if (speechSynthesis.speaking || speechSynthesis.paused) {
+        speechSynthesis.cancel();
+    }
+    isSpeaking = false;
+    currentUtterance = null;
+    clearInterval(speechProgressInterval);
+    progressBar.style.width = '0%';
+    voiceStatus.textContent = '準備就緒';
+}
+
+function startProgressBar() {
+    clearInterval(speechProgressInterval);
+    progressBar.style.width = '0%';
+    let progress = 0;
+    speechProgressInterval = setInterval(() => {
+        if (isSpeaking && progress < 100) {
+            progress += 0.5;
+            progressBar.style.width = progress + '%';
+        }
+    }, 100);
+}
+
+// 簡介語音控制功能
+function startIntroSpeech() {
+    stopIntroSpeech();
+    const textToSpeak = document.querySelector('.introduction-text-content').textContent || document.querySelector('.introduction-text-content').innerText;
+    if (textToSpeak) {
+        introCurrentUtterance = new SpeechSynthesisUtterance(textToSpeak);
+        introCurrentUtterance.lang = 'zh-TW';
+        introVoiceBtn.innerHTML = '<i class="fas fa-pause"></i>';
+        introIsSpeaking = true;
+        speechSynthesis.speak(introCurrentUtterance);
+        introCurrentUtterance.onend = () => {
+            stopIntroSpeech();
+            introVoiceBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+        };
+    }
+}
+
+function pauseIntroSpeech() {
+    if (introIsSpeaking) {
+        speechSynthesis.pause();
+        introIsSpeaking = false;
+        introVoiceBtn.innerHTML = '<i class="fas fa-play"></i>';
+    }
+}
+
+function resumeIntroSpeech() {
+    if (speechSynthesis.paused) {
+        speechSynthesis.resume();
+        introIsSpeaking = true;
+        introVoiceBtn.innerHTML = '<i class="fas fa-pause"></i>';
+    }
+}
+
+function stopIntroSpeech() {
+    if (speechSynthesis.speaking || speechSynthesis.paused) {
+        speechSynthesis.cancel();
+    }
+    introIsSpeaking = false;
+    introCurrentUtterance = null;
+    introVoiceBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+}
+
+// 更新次要篩選器
+function updateSecondaryFilters() {
+    secondaryFilterContainer.innerHTML = '';
+    // 如果是「桃園簡介」或「操作說明」頁面，則不顯示次要篩選器
+    if (currentMainFilter === 'introduction' || currentMainFilter === 'instructions') {
+        return;
+    }
+
+    let filterName = '全部';
+    let categories = [];
+    let customClassForButtons = 'bg-white hover:bg-sky-100';
+
+    if (currentMainFilter === 'attractions') {
+        filterName = '全部區域/類型';
+        const types = [...new Set(database.attractions.flatMap(item => item.type))].sort();
+        const districts = [...new Set(database.attractions.map(item => item.district))].sort();
+        categories = [...types, ...districts];
+        customClassForButtons = 'bg-green-100 text-green-800 hover:bg-green-200';
+    } else if (currentMainFilter === 'food') {
+        filterName = '全部分類';
+        categories = [...new Set(database.food.map(item => item.type))].sort();
+        customClassForButtons = 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200';
+    } else if (currentMainFilter === 'festivals') {
+        // 修改這裡：只篩選類型，移除月份篩選
+        filterName = '全部分類';
+        const types = [...new Set(database.festivals.flatMap(item => item.tags))].sort();
+        categories = [...types]; // 只保留類型篩選
+        customClassForButtons = 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200';
+    } else if (currentMainFilter === 'templeFestivals') {
+        filterName = '全部分類';
+        categories = [...new Set(database.templeFestivals.flatMap(item => item.tags))].sort();
+        customClassForButtons = 'bg-purple-100 text-purple-800 hover:bg-purple-200';
+    } else if (currentMainFilter === 'parks') { 
+        filterName = '全部區域/類型';
+        const types = [...new Set(database.parks.map(item => item.type))].sort();
+        const districts = [...new Set(database.parks.map(item => item.district))].sort();
+        categories = [...types, ...districts];
+        customClassForButtons = 'bg-blue-100 text-blue-800 hover:bg-blue-200';
+    } else if (currentMainFilter === 'historicalSites') {
+        filterName = '全部區域/類型';
+        const types = [...new Set(database.historicalSites.map(item => item.type))].sort();
+        const districts = [...new Set(database.historicalSites.map(item => item.district))].sort();
+        categories = [...types, ...districts];
+        customClassForButtons = 'bg-orange-100 text-orange-800 hover:bg-orange-200';
+    } else if (currentMainFilter === 'touristFactories') {
+        filterName = '全部分類/區域';
+        const types = [...new Set(database.touristFactories.map(item => item.type))].sort();
+        const districts = [...new Set(database.touristFactories.map(item => item.district))].sort();
+        categories = [...types, ...districts];
+        customClassForButtons = 'bg-gray-100 text-gray-800 hover:bg-gray-200';
+    } else if (currentMainFilter === 'dayTrips') {
+        filterName = '全部主題';
+        categories = [...new Set(database.dayTrips.map(item => item.theme))].sort();
+        customClassForButtons = 'bg-pink-100 text-pink-800 hover:bg-pink-200';
+    }
+
+    const filterTitle = document.createElement('span');
+    filterTitle.className = 'font-bold mr-4 hidden md:inline';
+    filterTitle.textContent = '篩選：';
+    secondaryFilterContainer.appendChild(filterTitle);
+    
+    const buttonGroup = document.createElement('div');
+    buttonGroup.className = 'flex flex-wrap justify-center gap-2';
+
+    const allBtn = createFilterButton(filterName, 'all', customClassForButtons);
+    buttonGroup.appendChild(allBtn);
+    categories.forEach(cat => buttonGroup.appendChild(createFilterButton(cat, cat, customClassForButtons)));
+    secondaryFilterContainer.appendChild(buttonGroup);
+    updateActiveButtonStates();
+}
+
+function createFilterButton(text, filterValue, customClasses) {
+    const btn = document.createElement('button');
+    btn.className = `filter-btn secondary-filter-btn py-1 px-4 rounded-full shadow-sm text-sm ${customClasses}`;
+    btn.textContent = text;
+    btn.dataset.filter = filterValue;
+    return btn;
+}
+
+// 更新篩選並重新渲染
+function filterAndRender() {
+    stopIntroSpeech();
+    if (!modal.classList.contains('hidden')) {
+       closeModal();
+    }
+
+    if (currentMainFilter === 'introduction') {
+        contentGrid.className = 'w-full mx-auto';
+        contentGrid.innerHTML = database.introduction;
+        introVoiceBtn.classList.remove('hidden');
+    } else if (currentMainFilter === 'instructions') {
+        contentGrid.className = 'w-full mx-auto';
+        contentGrid.innerHTML = database.instructions;
+        introVoiceBtn.classList.add('hidden');
+    } else if (currentMainFilter === 'dayTrips') {
+        const data = database.dayTrips;
+        const filteredData = (currentSecondaryFilter === 'all') ? data : data.filter(plan => plan.theme === currentSecondaryFilter);
+        renderDayTripPlans(filteredData);
+        introVoiceBtn.classList.add('hidden');
+    } else {
+        const data = database[currentMainFilter];
+        let filteredData;
+        if (currentSecondaryFilter === 'all') {
+            filteredData = data;
+        } else {
+            filteredData = data.filter(item => {
+                if (currentMainFilter === 'attractions' || currentMainFilter === 'parks' || currentMainFilter === 'historicalSites' || currentMainFilter === 'touristFactories') {
+                    return item.district === currentSecondaryFilter || (item.type && item.type.includes(currentSecondaryFilter));
+                } else if (currentMainFilter === 'food') {
+                    return item.type === currentSecondaryFilter || (Array.isArray(item.district) && item.district.includes(currentSecondaryFilter));
+                } else if (currentMainFilter === 'festivals') {
+                    // 修改這裡：只根據 tags 篩選，不再判斷月份
+                    return item.tags && item.tags.includes(currentSecondaryFilter);
+                } else if (currentMainFilter === 'templeFestivals') {
+                    return item.tags && item.tags.includes(currentSecondaryFilter);
+                }
+            });
+        }
+        renderCards(filteredData);
+        introVoiceBtn.classList.add('hidden');
+    }
+    updateActiveButtonStates();
+    updateSecondaryFilters();
+}
+
+// 更新按鈕的啟用狀態
+function updateActiveButtonStates() {
+    document.querySelectorAll('.main-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mainFilter === currentMainFilter);
+        // Special case for instructions button
+        if (btn.dataset.mainFilter === 'instructions') {
+            btn.classList.toggle('bg-yellow-500', btn.dataset.mainFilter === currentMainFilter);
+            btn.classList.toggle('text-white', btn.dataset.mainFilter === currentMainFilter);
+        }
+    });
+    document.querySelectorAll('.secondary-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === currentSecondaryFilter);
+    });
+}
+
+// --- 事件監聽器 (Event Listeners) ---
+mainFilterContainer.addEventListener('click', (e) => {
+    if (e.target.closest('.main-filter-btn')) {
+        currentMainFilter = e.target.closest('.main-filter-btn').dataset.mainFilter;
+        currentSecondaryFilter = 'all';
+        filterAndRender();
+    }
+});
+
+secondaryFilterContainer.addEventListener('click', (e) => {
+    if (e.target.matches('.secondary-filter-btn')) {
+        currentSecondaryFilter = e.target.dataset.filter;
+        filterAndRender();
+    }
+});
+
+modalClose.addEventListener('click', closeModal);
+modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+});
+
+// 語音控制按鈕事件
+playBtn.addEventListener('click', () => {
+    if (speechSynthesis.paused) resumeSpeech();
+    else if (!isSpeaking) startSpeech();
+});
+pauseBtn.addEventListener('click', pauseSpeech);
+stopBtn.addEventListener('click', stopSpeech);
+
+// 簡介語音按鈕事件
+introVoiceBtn.addEventListener('click', () => {
+    if (introIsSpeaking) pauseIntroSpeech();
+    else if (speechSynthesis.paused) resumeIntroSpeech();
+    else startIntroSpeech();
+});
+
+// --- 初始載入 (Initial Load) ---
+window.addEventListener('DOMContentLoaded', () => {
+    filterAndRender();
+    introSpeechBtn = document.getElementById('introduction-voice-btn');
+    if (!('speechSynthesis' in window)) {
+        console.warn('此瀏覽器不支援Web Speech API');
+        introVoiceBtn.style.display = 'none';
+    }
+});
+</script>
+</body>
+</html>
